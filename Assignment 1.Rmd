@@ -144,4 +144,7 @@ pge_chart_comm <-
     title = "Commercial Usage",
     fill = "Electricity Type"
   )
+
+pge_chart_comm
+pge_chart_res
 ```
