@@ -1,30 +1,147 @@
 ---
 title: "Assignment 1"
 author: "Daphne Jacobsberg"
-date: "9/23/2021"
+date: "9/26/2021"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```{r}
+library(tidyverse)
+library(plotly)
+library(sf)
+library(tigris)
+library(leaflet)
+library(censusapi)
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+Sys.setenv(CENSUS_KEY="c8aa67e4086b4b5ce3a8717f59faa9a28f611dab")
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+```{r}
+years <- 2017:2021
+quarters <- 1:4
+types <- c("Electric","Gas")
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+pge_data_raw <- NULL
+
+for(year in years) {
+  for(quarter in quarters) {
+    for(type in types) {
+      
+      filename <- 
+        paste0(
+          "pge/PGE_",
+          year,
+          "_Q",
+          quarter,
+          "_",
+          type,
+          "UsageByZip.csv"
+        )
+  
+      if (year == 2021&quarter %in% 3:4){
+        next
+        }
+      
+      temp <- read_csv(filename)
+      
+      if(type == "Electric") {
+        temp <-
+          temp %>%
+          mutate(TOTALKBTU = TOTALKWH * 3.41214) %>%
+          select(-TOTALKWH, -AVERAGEKWH)
+      }
+      if(type == "Gas") {
+        temp <-
+          temp %>%
+          mutate(TOTALKBTU = TOTALTHM * 100) %>%
+          select(-TOTALTHM, -AVERAGETHM)
+      }
+      
+      pge_data_raw <- 
+        rbind(pge_data_raw,temp)
+      
+    }
+  }
+}
+```
+There is one genuine problem with the data that needs to be solved, but it is hard to notice at this stage, and hard to notice at all until you make your first plots. You won't be penalized for not correcting it, but be on the lookout for something odd in the data, and if you find it, think about how to address it in your for loop.
+
+Next, you should explore the dataframe to notice that you only need 4 customer classes. Then, using the techniques from Chapter 1.7, you can manipulate the dataframe to give you total KBTU per month. To enable the dataframe to plot with time on the X-axis, it helps to create a `DATE` field that is an alphanumerically increasing string, or is a full Date object (as I'm guiding below). 
+```{r}
+pge_data <-
+  pge_data_raw %>% 
+  filter(
+    CUSTOMERCLASS %in% c("Elec- Commercial","Elec- Residential", "Gas- Commercial", "Gas- Residential")
+  ) %>% 
+  group_by(
+    MONTH, 
+    YEAR, 
+    CUSTOMERCLASS
+  ) %>% 
+  summarize(
+    TOTALKBTU = sum(TOTALKBTU, na.rm = T)
+  ) %>% 
+  mutate(
+    DATE = 
+      paste(
+        YEAR,
+        MONTH, 
+        "01",
+        sep="-"
+      ) %>% as.Date()
+  )
+```
+Next, write a `ggplot()` pipeline for the residential time series. 
+
+
+```{r}
+pge_chart_res <-
+  pge_data %>% 
+  filter(CUSTOMERCLASS %in% c("Elec- Residential", "Gas- Residential")) %>% 
+  ggplot() +
+  geom_bar(
+    aes(
+      x = MONTH %>% factor(),
+      y = TOTALKBTU,
+      fill = CUSTOMERCLASS
+    ),
+    stat = "identity",
+    position = "stack"
+  ) +
+  labs(
+    x = "Month",
+    y = "kBTUs",
+    title = "Residential Usage",
+    fill = "Electricity Type"
+  )
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+pge_chart_comm <-
+  pge_data %>% 
+  filter(CUSTOMERCLASS %in% c("Elec- Commercial", "Gas- Commercial")) %>% 
+  ggplot() +
+  geom_bar(
+    aes(
+      x = MONTH %>% factor(),
+      y = TOTALKBTU,
+      fill = CUSTOMERCLASS
+    ),
+    stat = "identity",
+    position = "stack"
+  ) +
+  labs(
+    x = "Month",
+    y = "kBTUs",
+    title = "Commercial Usage",
+    fill = "Electricity Type"
+  )
+```
