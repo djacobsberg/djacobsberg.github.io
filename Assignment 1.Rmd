@@ -1,7 +1,7 @@
 ---
 title: "Assignment 1"
 author: "Daphne Jacobsberg"
-date: "9/26/2021"
+date: "9/27/2021"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -148,3 +148,29 @@ pge_chart_comm <-
 pge_chart_comm
 pge_chart_res
 ```
+
+
+```{r}
+pge_covid <-
+  pge_data %>% 
+  filter(CUSTOMERCLASS %in% c("Elec- Commercial", "Gas- Commercial", "Elec- Residential", "Gas- Residential")) %>% 
+  ggplot() +
+  geom_bar(
+    aes(
+      x = YEAR %>% factor(),
+      y = TOTALKBTU,
+      fill = CUSTOMERCLASS
+    ),
+    stat = "identity",
+    position = "stack"
+  ) +
+  labs(
+    x = "Month",
+    y = "kBTUs",
+    title = "Commercial Usage",
+    fill = "Electricity Type"
+  )
+
+pge_covid
+```
+
