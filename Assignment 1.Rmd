@@ -72,9 +72,8 @@ for(year in years) {
   }
 }
 ```
-There is one genuine problem with the data that needs to be solved, but it is hard to notice at this stage, and hard to notice at all until you make your first plots. You won't be penalized for not correcting it, but be on the lookout for something odd in the data, and if you find it, think about how to address it in your for loop.
 
-Next, you should explore the dataframe to notice that you only need 4 customer classes. Then, using the techniques from Chapter 1.7, you can manipulate the dataframe to give you total KBTU per month. To enable the dataframe to plot with time on the X-axis, it helps to create a `DATE` field that is an alphanumerically increasing string, or is a full Date object (as I'm guiding below). 
+
 ```{r}
 pge_data <-
   pge_data_raw %>% 
@@ -99,8 +98,8 @@ pge_data <-
       ) %>% as.Date()
   )
 ```
-Next, write a `ggplot()` pipeline for the residential time series. 
 
+This first plot shows residential usage of both electricity and gas over the months of a year. Gas consumption often exceeds electric, or is rarely lower than gas. It is good to remember the second half of the year only has data for 4 years instead of 5.
 
 ```{r}
 pge_chart_res <-
@@ -122,7 +121,11 @@ pge_chart_res <-
     title = "Residential Usage",
     fill = "Electricity Type"
   )
+
+pge_chart_res
 ```
+
+This second plot follows the same idea but shows data related to commercial consumption of electricity and gas. Interestingly,commercial usage is more constant across seasons than residential usage.
 
 ```{r}
 pge_chart_comm <-
@@ -146,14 +149,44 @@ pge_chart_comm <-
   )
 
 pge_chart_comm
-pge_chart_res
 ```
 
+This graph compares gas and electricity consumption in both commercial and residential settings across the months of 2019 and 2020. It is interesting to see how COVID is reflected onto our behaviors. In March 2020, the overall consumption decreased as Covid hit. As Covid alleviated around August and towards the end of the year (together with the start of the Winter), you can observe corresponding increases in consumption. 
 
 ```{r}
 pge_covid <-
   pge_data %>% 
-  filter(CUSTOMERCLASS %in% c("Elec- Commercial", "Gas- Commercial", "Elec- Residential", "Gas- Residential")) %>% 
+  filter(CUSTOMERCLASS %in% c("Elec- Commercial", "Gas- Commercial", "Elec- Residential", "Gas- Residential")) %>%
+  #filter(DATE >= "2020-01-01") %>%
+  filter(DATE >= as.Date("2019-01-01") & DATE <= as.Date("2020-12-01")) %>%
+  ggplot() +
+  geom_bar(
+    aes(
+      x = DATE,
+      y = TOTALKBTU,
+      fill = CUSTOMERCLASS
+    ),
+    stat = "identity",
+    position = "stack"
+  ) +
+  labs(
+    x = "Month",
+    y = "kBTUs",
+    title = "2019 vs. 2020",
+    fill = "Electricity Type"
+  )
+
+pge_covid
+```
+
+This last graph is also a reflection of how COVID changed our habits. You can see how the proportions of commercial to residential consumption of both electricity and gas changed in 2020. As people spent more time at home and many stopped going to the office (though industry still ran), the residential usage increased and commercial decreased. Although these changes I am pointing out might seem small on the graph, it is important to look at the y-axis scale - what might look like a small shift represents a huge amount of kBTUs.
+
+```{r}
+pge_covidi <-
+  pge_data %>% 
+  filter(CUSTOMERCLASS %in% c("Elec- Commercial", "Gas- Commercial", "Elec- Residential", "Gas- Residential")) %>%
+  #filter(DATE >= "2020-01-01") %>%
+  #filter(DATE >= as.Date("2019-01-01") & DATE <= as.Date("2020-12-01")) %>%
   ggplot() +
   geom_bar(
     aes(
@@ -165,12 +198,12 @@ pge_covid <-
     position = "stack"
   ) +
   labs(
-    x = "Month",
+    x = "Year",
     y = "kBTUs",
-    title = "Commercial Usage",
+    title = "Yearly Consumption",
     fill = "Electricity Type"
   )
 
-pge_covid
+pge_covidi
 ```
 
