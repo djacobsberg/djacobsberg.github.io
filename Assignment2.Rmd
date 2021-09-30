@@ -1,0 +1,27 @@
+---
+title: "Assignment2"
+author: "Daphne Jacobsberg"
+date: "9/30/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+```
+
+
+```{r}
+library(tidyverse)
+library(plotly)
+library(sf)
+library(tigris)
+library(leaflet)
+library(censusapi)
+
+Sys.setenv(CENSUS_KEY="c8aa67e4086b4b5ce3a8717f59faa9a28f611dab")
+```
+
+```{r}
+
+```
+
