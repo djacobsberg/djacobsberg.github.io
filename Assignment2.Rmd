@@ -21,6 +21,7 @@ library(tigris)
 library(censusapi)
 library(mapview)
 library(devtools)
+library(leaflet)
 
 Sys.setenv(CENSUS_KEY="c8aa67e4086b4b5ce3a8717f59faa9a28f611dab")
 ```
@@ -57,7 +58,7 @@ scc_pop_2020 <-
     vars = "P1_003N"
   ) %>% 
   transmute(
-    block =
+    GEOID20 =
       paste0(state,county,tract,block),
     pop = P1_003N
   )
@@ -73,148 +74,108 @@ scc_pop_2010 <-
     vars = "P001003"
   ) %>% 
   transmute(
-    block =
+    GEOID10 =
       paste0(state,county,tract,block),
     pop = P001003
   )
 ```
 
 
-Not sure I need this
 ```{r}
-ca_counties <- counties("CA", cb = T, progress_bar = F)
-
-st_crs(ca_counties)
-
-projection <- "+proj=utm +zone=10 +ellps=GRS80 +datum=NAD83 +units=ft +no_defs"
-
-ca_counties_transformed <- 
-  ca_counties %>% 
-  st_transform(4326) %>% 
-  st_transform(26910) %>% 
-  st_transform(projection) %>% 
-  st_transform(st_crs(ca_counties))
-
-bay_county_names <-
-  c(
-    "Alameda",
-    "Contra Costa",
-    "Marin",
-    "Napa",
-    "San Francisco",
-    "San Mateo",
-    "Santa Clara",
-    "Solano",
-    "Sonoma"
-  )
-
-bay_counties <-
-  counties("CA", cb = T, progress_bar = F) %>%
-  filter(NAME %in% bay_county_names)
-
-
-
-
-ca_cities <- places("CA", cb = T, progress_bar = FALSE)
-
-bay_cities <- ca_cities[bay_counties, ]
-
-bay_cities_within <-
-  ca_cities %>% 
-  st_centroid() %>% 
-  .[bay_counties, ] %>% 
-  st_set_geometry(NULL) %>% 
-  left_join(ca_cities %>% select(GEOID)) %>% 
-  st_as_sf()
-
-bay_cities_within <-
-  ca_cities[which(ca_cities$GEOID %in% st_centroid(ca_cities)[bay_counties, ]$GEOID), ]
-
-scc_cbgs <- block_groups("CA", bay_county_names[7], cb = T, progress_bar = F)
-
-bay_cbgs <- 
-  bay_county_names %>% 
-  map_dfr(function(county) {
-    block_groups("CA", "Santa Clara", cb = T, progress_bar = F)
-  })
-
-
-
-
-```
-
-
-Keep this
-```{r}
-
 scc_blocks_2020 <- blocks("CA", "Santa Clara", year = 2020, progress_bar = F)
 scc_blocks_2010 <- blocks("CA", "Santa Clara", year = 2010, progress_bar = F)
 
 cup_boundary <- places("CA", progress_bar = F) %>% 
-  filter(NAME == "Cupertino")
+  filter(NAME %in% "Cupertino")
 
-cup_pop_2020 <- scc_pop_2020 %>% 
-  left_join(scc_blocks_2020 %>% select(block = GEOID20)) %>% 
-  st_as_sf() %>% 
+cup_pop_2020 <-  scc_blocks_2020 %>% 
+  # left_join(scc_pop_2020 %>% select(GEOID20)) %>% 
+  # st_as_sf() %>% 
   st_centroid() %>% 
   .[cup_boundary, ] %>% 
   st_set_geometry(NULL) %>% 
-  left_join(scc_blocks_2020 %>% select(block = GEOID20)) %>% 
-  st_as_sf()
-
-
-cup_pop_2010 <- scc_pop_2010 %>% 
-  left_join(scc_blocks_2010 %>% select(block = GEOID10)) %>% 
-  st_as_sf() %>% 
+  left_join(scc_blocks_2020 %>% select(GEOID20)) %>% 
+  st_as_sf() %>%
+  select(GEOID20) %>% 
+  left_join(scc_pop_2020) %>% 
+  st_transform(4269) 
+  
+cup_pop_2010 <-  scc_blocks_2010 %>% 
   st_centroid() %>% 
   .[cup_boundary, ] %>% 
   st_set_geometry(NULL) %>% 
-  left_join(scc_blocks_2010 %>% select(block = GEOID10)) %>% 
-  st_as_sf()
+  left_join(scc_blocks_2010 %>% select(GEOID10)) %>% 
+  st_as_sf() %>%
+  select(GEOID10) %>% 
+  left_join(scc_pop_2010) %>% 
+  st_transform(4269) 
 
-print("a")
 ```
 
 
 ```{r}
-bay_pdas <- st_read("https://opendata.arcgis.com/datasets/4df9cb38d77346a289252ced4ffa0ca0_0.geojson")
-
-scc_pdas <-
-  bay_pdas %>% 
-  filter(county == "Santa Clara") %>% 
-  st_transform(4269)
-
-scc_pdas_blocks <- smc_blocks_2020[scc_pdas, ]
-
-scc_pdas_blocks_area <-
-  scc_pdas_blocks %>% 
-  st_transform(26910) %>% 
-  mutate(area = st_area(.))
-
-scc_pdas_blocks_intersection <-
-  scc_pdas_blocks_area %>% 
-  st_intersection(
-    scc_pdas %>% 
-      st_transform(26910)
-  )
-
-scc_pdas_blocks_3 <-
-  scc_pdas_blocks %>% 
-  select(block = GEOID20) %>% 
-  left_join(scc_pop_2020) %>% 
+place_blocks_2020_intersect <- cup_pop_2020 %>% 
   st_transform(26910) %>% 
   mutate(original_area = st_area(.)) %>% 
   st_intersection(
-    scc_pdas %>% 
+    cup_pop_2010 %>%
+      select(GEOID10) %>% 
       st_transform(26910)
   ) %>% 
   mutate(
     leftover_area = st_area(.),
-    perc_area = leftover_area / original_area,
-    pop = pop * perc_area
+    perc_area = as.numeric(leftover_area / original_area),
+    pop_2020 = perc_area * pop
+  )
+```
+
+
+```{r}
+place_blocks_2020_reshaped <- place_blocks_2020_intersect %>%
+  st_drop_geometry() %>% 
+  group_by(GEOID10) %>% 
+  summarize(
+    pop_2020 = sum(pop, na.rm=T) %>% round()
+  )
+```
+
+
+```{r}
+projection <- "+proj=utm +zone=10 +ellps=GRS80 +datum=NAD83 +units=ft +no_defs"
+place_pop_2010_2020 <- cup_pop_2010 %>% 
+  left_join(place_blocks_2020_reshaped) %>% 
+  transform(projection) %>% 
+  mutate(
+    #perc_diff = (pop_2020 - pop) / pop *100,
+    diff = (pop_2020 - pop),
+    absolute_pop = (pop_2020 - pop) / as.numeric(st_area(.)) * 43560
   )
 
-print("b")
+```
 
+Manually created domain to account for outliars in data
+```{r}
+
+#max <- max(abs(place_pop_2010_2020$absolute_pop))
+absolute_pal <- colorNumeric(
+  palette = "RdYlGn",
+  domain = c(-500, 500)
+)
+
+leaflet(place_pop_2010_2020) %>% 
+  addProviderTiles(provider = providers$CartoDB.Positron) %>% 
+  addPolygons(
+    fillColor = ~absolute_pal(absolute_pop),
+    label = ~round(absolute_pop),
+    color = "white",
+    opacity = 0.5,
+    fillOpacity = 0.75,
+    weight = 1
+  ) %>%
+   addLegend(
+     pal = absolute_pal,
+     value = c(-500,500),
+     title = "White Population change in Cupertino"
+   )
 ```
 
