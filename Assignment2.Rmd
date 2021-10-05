@@ -7,12 +7,16 @@ editor_options:
   chunk_output_type: console
 ---
 
-My Own Code
+Here is a map showing population density change from 2010 to 2020 in Cupertino, Santa Clara, California. Cupertino is known for its highly developed tech industry which was predominantly white. However, there has been an increasing effort towards making this community more diverse and inclusive. I chose to analyze this population change as a form of measuring the effectiveness of these efforts.
+
+A couple weaknesses of my analysis are the following: this map does not show white population as a proportion of total population, not necessarily everyone who works in Cupertino also lives in Cupertino and vice-versa, and this data includes people from all age ranges rather than just the working class.
+
+In analyzing the map we can conclude that overall, the great majority of areas had an increase in white population from 2010 to 2020. That said, I believe these numbers are not particularly alarming, especially compared to what I imagine they were like in the previous decade (2000 to 2010).
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F, warning = F, message = F)
 ```
-
 
 ```{r}
 library(tidyverse)
@@ -26,14 +30,13 @@ library(leaflet)
 Sys.setenv(CENSUS_KEY="c8aa67e4086b4b5ce3a8717f59faa9a28f611dab")
 ```
 
-
-
-california = 06
-santa clara = 085
-cupertino
-
-Only to find variables
 ```{r}
+#to find variables for each year
+
+#California = 06
+#Santa Clara County = 085
+#City = Cupertino
+
 dec_vars_2020 <-
   listCensusMetadata(
     name = "2020/dec/pl",
@@ -47,8 +50,10 @@ dec_vars_2010 <-
   )
 ```
 
-Get data
+
 ```{r}
+#getting the data for 2020
+
 scc_pop_2020 <-
   getCensus(
     name = "dec/pl",
@@ -65,6 +70,8 @@ scc_pop_2020 <-
 ```
 
 ```{r}
+# data for 2010
+
 scc_pop_2010 <-
   getCensus(
     name = "dec/pl",
@@ -110,10 +117,13 @@ cup_pop_2010 <-  scc_blocks_2010 %>%
   left_join(scc_pop_2010) %>% 
   st_transform(4269) 
 
+#different from the starter code, here I applied cup_boundary to both 2020 and 2010. this could be one of the potential sources for the outliers later on.
 ```
 
 
 ```{r}
+#joined starter code here
+
 place_blocks_2020_intersect <- cup_pop_2020 %>% 
   st_transform(26910) %>% 
   mutate(original_area = st_area(.)) %>% 
@@ -146,16 +156,18 @@ place_pop_2010_2020 <- cup_pop_2010 %>%
   left_join(place_blocks_2020_reshaped) %>% 
   transform(projection) %>% 
   mutate(
-    #perc_diff = (pop_2020 - pop) / pop *100,
+    #perc_diff and diff used just to check
+    perc_diff = (pop_2020 - pop) / pop *100,
     diff = (pop_2020 - pop),
     absolute_pop = (pop_2020 - pop) / as.numeric(st_area(.)) * 43560
   )
 
+#here is where something strange happens - the absolute_pop range becomes huge. one potential guess for why this could be happening is that an area got cut short meaning the change/area became huge.
 ```
 
-Manually created domain to account for outliars in data
-```{r}
 
+```{r}
+#instead of max, manually created domain to avoid disruption from outliers in data
 #max <- max(abs(place_pop_2010_2020$absolute_pop))
 absolute_pal <- colorNumeric(
   palette = "RdYlGn",
@@ -175,7 +187,7 @@ leaflet(place_pop_2010_2020) %>%
    addLegend(
      pal = absolute_pal,
      value = c(-500,500),
-     title = "White Population change in Cupertino"
+     title = "White Population change from 2010 to 2020 in Cupertino"
    )
 ```
 
