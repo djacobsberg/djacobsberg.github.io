@@ -1,0 +1,152 @@
+---
+title: "Assignment3"
+author: "Daphne Jacobsberg"
+date: "10/8/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+```
+
+```{r}
+library(tidyverse)
+library(sf)
+library(tigris)
+library(censusapi)
+library(mapview)
+library(devtools)
+library(leaflet)
+
+Sys.setenv(CENSUS_KEY="c8aa67e4086b4b5ce3a8717f59faa9a28f611dab")
+```
+
+```{r}
+pums_2019_1yr <- getCensus(
+  name = "acs/acs1/pums",
+  vintage = 2019,
+  region = "public use microdata area:*", 
+  regionin = "state:06",
+  vars = c(
+    "SERIALNO",
+    "SPORDER",
+    "PWGTP",
+    "WGTP",
+    "NP",
+    "HHL",
+    "HINCP",
+    "TEN",
+    "INDP",
+    "RWAT"
+  )
+)
+```
+
+
+```{r}
+ca_pumas <-
+  pumas("CA", cb = T, progress_bar = F)
+
+bay_county_names <-
+  c(
+    "Alameda",
+    "Contra Costa",
+    "Marin",
+    "Napa",
+    "San Francisco",
+    "San Mateo",
+    "Santa Clara",
+    "Solano",
+    "Sonoma"
+  )
+
+bay_counties <-
+  counties("CA", cb = T, progress_bar = F) %>%
+  filter(NAME %in% bay_county_names)
+
+bay_pumas <-
+  ca_pumas %>% 
+  st_centroid() %>% 
+  .[bay_counties, ] %>% 
+  st_drop_geometry() %>% 
+  left_join(ca_pumas %>% select(GEOID10)) %>% 
+  st_as_sf()
+
+bay_pums <-
+  pums_2019_1yr %>% 
+  mutate(
+    PUMA = str_pad(public_use_microdata_area,5,"left","0")
+  ) %>% 
+  filter(PUMA %in% bay_pumas$PUMACE10)
+```
+
+
+```{r}
+bay_pums_ac <-
+  bay_pums %>% 
+  filter(!duplicated(SERIALNO)) %>% 
+  mutate(
+    WGTP = as.numeric(WGTP),
+    nowater_noac_lowinc = ifelse(
+      #removed water because data became futile
+      #(RWAT == 2) &
+        (INDP != 670) &
+        (HINCP < 100000),
+      WGTP,
+      0
+    )
+  ) %>% 
+  group_by(PUMA) %>% 
+  summarize(
+    perc_nowater_noac_lowinc =
+      sum(nowater_noac_lowinc, na.rm =T)/sum(WGTP, na.rm = T)*100
+  ) %>% 
+  left_join(
+    bay_pumas %>% 
+      select(PUMACE10),
+    by = c("PUMA" = "PUMACE10")
+  ) %>% 
+  st_as_sf()
+
+num_var <- nrow(bay_pums_ac)
+
+average <-
+  bay_pums_ac %>%
+  mutate(average = sum(perc_nowater_noac_lowinc)/num_var)
+```
+
+
+```{r}
+pums_pal <- colorNumeric(
+  palette = "PuRd",
+  domain = bay_pums_ac$perc_nowater_noac_lowinc
+)
+
+leaflet() %>%
+  addTiles() %>% 
+  addPolygons(
+    data = bay_pums_ac,
+    fillColor = ~pums_pal(perc_nowater_noac_lowinc),
+    color = "gray",
+    opacity = 0.5,
+    fillOpacity = 0.5,
+    weight = 1,
+    label = ~paste0(
+      round(perc_nowater_noac_lowinc), 
+      "% households without air-conditioning making less than $100K"
+    ),
+    highlightOptions = highlightOptions(
+      weight = 2,
+      opacity = 1
+    )
+  ) %>% 
+  addLegend(
+    data = bay_pums_ac,
+    pal = pums_pal,
+    values = ~perc_nowater_noac_lowinc,
+    title = "% households without<br>air-conditioning making<br>less than $100K"
+  )
+```
+
