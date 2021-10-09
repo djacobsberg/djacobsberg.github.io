@@ -7,6 +7,20 @@ editor_options:
   chunk_output_type: console
 ---
 
+In my group's interviews, the main topic that came up was access to air-conditioned spaces. Not only did everyone we talked to mention it to be essential and their main coping strategy but also, came up as one of the biggest criticisms towards Stanford. People were concerned about not having air-conditioning in undergraduate residences and disagreed with the university's protocol that prohibits students to have their own private AC units in their rooms. The second most frequently mentioned resource was water and keeping hydrated.
+
+As a consequence, I decided to investigate three factors: access to water, air-conditioning and income. I decided to include low-income as I believe this limits the resources available to invest in additional resources when needed. When correlating household which did not have access to water or air-conditioning and were low-income, the results were insignificant. After playing around with the data, I realized not having access to water was extremely rare, making my results vary between only 0% and 1% of households.
+
+As a consequence, the graph you are seeing below represents the percentage of households that are low-income and do not have air-conditioning. Interestingly, the area of South San Francisco reports 45%, one of the highest, as is really close to the developed and high-end city of San Francisco.
+
+Another point worth mentioning is that the PUMA in which Stanford's campus falls in declares that 31% of households do not have air-conditioning and are making less than $100K. I wonder if it would be possible to investigate what that percentage would look like without Stanford's residences and whether they are included in the first place as they are dorms owned by the university.
+
+Using the data collected from the 2019 PUMA database, I was able to calculate the average for the 9 Bay Area counties and found that 36.8% of households reported not having AC and being low-income. While 36.8% might not sound like too much of an issue, this becomes even more concerning when expressed in absolute terms. Given that there are 31,863 unique household IDs in this database, we are talking about 11,659 households across the Bar Area.
+
+As waves of extreme heat, and higher temperatures in general, become more and more frequent with global warming, this is a big challenge we will have to face, and quickly find effective solutions for.
+
+
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F, warning = F, message = F)
 ```
