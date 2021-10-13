@@ -4,6 +4,9 @@ author: "Daphne Jacobsberg"
 date: "10/12/2021"
 output: html_document
 ---
+
+Hi there
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F, warning = F, message = F)
 ```
