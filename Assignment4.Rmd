@@ -3,9 +3,9 @@ title: "Assignment4"
 author: "Daphne Jacobsberg"
 date: "10/12/2021"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
-
-Hi there
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F, warning = F, message = F)
@@ -24,7 +24,7 @@ Sys.setenv(CENSUS_KEY="c8aa67e4086b4b5ce3a8717f59faa9a28f611dab")
 ```
 
 ```{r}
-#just to choose variable
+#just to choose variable - data dictionary
 acs_vars_2019_5yr <-
   listCensusMetadata(
     name = "2019/acs/acs5",
@@ -32,31 +32,203 @@ acs_vars_2019_5yr <-
   )
 ```
 
+C15002
+
 ```{r}
-bay_income_white <-
-  getCensus(
-    name = "acs/acs5",
-    vintage = 2019,
-    region = "county:001,013,041,055,075,081,085,095,097",
-    regionin = "state:06",
-    vars = "group(B19001A)"
-  ) %>%
-  select(!c(GEO_ID,state,NAME) & !ends_with(c("EA","MA","M"))) %>%
-  pivot_longer(
-    ends_with("E"),
-    names_to = "name",
-    values_to = "estimate"
-  ) %>%
-  left_join(
-    acs_vars_2019_5yr %>% 
-      select(name, label)
-  ) %>% 
-  select(-name) %>% 
-  separate(
-    label,
-    into = c(NA,NA,"income"),
-    sep = "!!"
-  ) %>% 
-  filter(!is.na(income))
+race_categories <- c(
+  "White alone",
+  "Black or African American alone",
+  "American Indian and Alaska Native alone",
+  "Asian alone",
+  "Native Hawaiian and Other Pacific Islander alone",
+  "Some Other Race alone",
+  "Two or more Races"
+)
+
+
+bay_educ_race <-
+  1:7 %>% 
+  map_dfr(function(x){
+    
+    getCensus(
+      name = "acs/acs5",
+      vintage = "2019",
+      region = "county:085",
+      regionin = "state:06",
+      vars = paste0("group(C15002",LETTERS[x],")")
+    ) %>% 
+      select(ends_with("E") & -c(state, NAME)) %>% 
+      summarize_all(sum) %>% 
+      pivot_longer(
+        everything(),
+        names_to = "name",
+        values_to = "estimate"
+      ) %>% 
+      left_join(
+        acs_vars_2019_5yr %>% 
+          select(name, label)
+      ) %>% 
+      separate(
+        label,
+        into = c(NA, NA, NA, "education"),
+        sep = "!!"
+      ) %>% 
+      select(-name) %>% 
+      filter(!is.na(education)) %>% 
+      group_by(education) %>%
+      summarize(across(everything(), sum)) %>%
+      mutate(
+        race = race_categories[x]
+      )
+      
+    
+  })
+
+
+
 ```
+
+
+
+
+```{r}
+bay_race_total <-
+  bay_educ_race %>% 
+  group_by(race) %>% 
+  summarize(estimate = sum(estimate)) %>% 
+  mutate(education = "Total")
+
+plot_filled <-
+  bay_educ_race %>% 
+    group_by(education, race) %>% 
+    summarize(estimate = sum(estimate)) %>% 
+    rbind(bay_race_total) %>% 
+    ggplot() +
+    geom_bar(
+      aes(
+        x = education %>% factor(levels = rev(c("Total","Less than high school diploma", "High school graduate (includes equivalency)", "Some college or associate's degree", "Bachelor's degree or higher"))),
+        y = estimate,
+        fill = race %>% factor(levels = rev(unique(bay_educ_race$race)))
+      ),
+      stat = "identity",
+      position = "fill"
+    ) +
+    labs(
+      x = "Level of Educational Attainment",
+      y = "Proportion of individuals",
+      title = "Santa Clara educational attainment by race",
+      fill = "Race of individual"
+    ) +
+    coord_flip() +
+    theme(
+      legend.position = "bottom",
+      legend.direction = "vertical"
+    )  +
+    guides(
+      fill = guide_legend(
+        reverse = T
+      )
+    )
+
+plot_filled
+```
+
+
+```{r}
+plot_stacked <-
+  bay_educ_race %>% 
+    group_by(education, race) %>% 
+    summarize(estimate = sum(estimate)) %>% 
+    ggplot() +
+    geom_bar(
+      aes(
+        x = education %>% factor(levels = rev(c("Less than high school diploma", "High school graduate (includes equivalency)", "Some college or associate's degree", "Bachelor's degree or higher"))),
+        y = estimate,
+        fill = race %>% factor(levels = rev(unique(bay_educ_race$race)))
+      ),
+      stat = "identity",
+      position = "stack"
+    ) +
+    labs(
+      x = "Level of Educational Attainment",
+      y = "Proportion of individuals",
+      title = "Santa Clara educational attainment by race",
+      fill = "Race of individual"
+    ) +
+    coord_flip() +
+    theme(
+      legend.position = "bottom",
+      legend.direction = "vertical"
+    )  +
+    guides(
+      fill = guide_legend(
+        reverse = T
+      )
+    )
+
+plot_stacked
+```
+
+
+6.5 assignment
+
+```{r}
+acs_vars_2019 <-
+  listCensusMetadata(
+    name = "2019/acs/acs1",
+    type = "variables"
+  )
+
+
+latin_categories <- c(
+  "White alone",
+  "Black or African American alone",
+  "American Indian and Alaska Native alone",
+  "Asian alone",
+  "Native Hawaiian and Other Pacific Islander alone",
+  "Some Other Race alone",
+  "Two or more Races"
+)
+```
+
+```{r}
+bay_educ_latin <-
+  1:9 %>% 
+  map_dfr(function(x){
+    
+    getCensus(
+      name = "acs/acs1",
+      vintage = "2019",
+      region = "county:085",
+      regionin = "state:06",
+      vars = paste0("group(C15002",LETTERS[x],")")
+    ) %>% 
+      select(ends_with("E") & -c(state, NAME)) %>% 
+      summarize_all(sum) %>% 
+      pivot_longer(
+        everything(),
+        names_to = "name",
+        values_to = "estimate"
+      ) %>% 
+      left_join(
+        acs_vars_2019_5yr %>% 
+          select(name, label)
+      ) %>% 
+      separate(
+        label,
+        into = c(NA, NA, NA, "education"),
+        sep = "!!"
+      ) %>% 
+      select(-name) %>% 
+      filter(!is.na(education)) %>% 
+      group_by(education) %>%
+      summarize(across(everything(), sum)) %>%
+      mutate(
+        race = race_categories[x]
+      )
+      
+    
+  })
+```
+
 
