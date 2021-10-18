@@ -30,9 +30,10 @@ acs_vars_2019_5yr <-
     name = "2019/acs/acs5",
     type = "variables"
   )
+
+#variable code = C15002
 ```
 
-C15002
 
 ```{r}
 race_categories <- c(
@@ -88,8 +89,44 @@ bay_educ_race <-
 
 ```
 
+The graph below shows the educational attainment level of the Santa Clara 25 years or older population by race. Keeping in mind how developed and high-end Santa Clara county is, I did not find it surprising that the "Bachelor's degree or higher" was the most common. In fact, the number of individuals increases as you go down each category. Furthermore, looking at the distributions within, White alone and Asian alone were by far the most common and followed the trend described above. On the other hand, the Some Other Race alone category was at it highest in the lowest educational level and at it lowest in the highest educational level. This shows a significant drop out pattern which is very unfortunate.
 
+```{r}
+plot_stacked <-
+  bay_educ_race %>% 
+    group_by(education, race) %>% 
+    summarize(estimate = sum(estimate)) %>% 
+    ggplot() +
+    geom_bar(
+      aes(
+        x = education %>% factor(levels = rev(c("Less than high school diploma", "High school graduate (includes equivalency)", "Some college or associate's degree", "Bachelor's degree or higher"))),
+        y = estimate,
+        fill = race %>% factor(levels = rev(unique(bay_educ_race$race)))
+      ),
+      stat = "identity",
+      position = "stack"
+    ) +
+    labs(
+      x = "Level of Educational Attainment",
+      y = "Number of individuals",
+      title = "Santa Clara educational attainment by race",
+      fill = "Race of individual"
+    ) +
+    coord_flip() +
+    theme(
+      legend.position = "bottom",
+      legend.direction = "vertical"
+    )  +
+    guides(
+      fill = guide_legend(
+        reverse = T
+      )
+    )
 
+plot_stacked
+```
+
+While displaying the same data, the filled graph below is also interesting. It is especially useful when trying to understand the proportions of each race category within the educational levels. As it is a proportion, the x-axis scale becomes from 0 to 1 which makes it easier to interpret the data and draw conclusions from it. In almost all cases, White alone constitutes  50% of the population; and combined with Asian alone, 75% of the population. Looking specifically into the Black or African American alone category, you can see an increasing trend up to "Some college or associate's degree" but then a significant drop when it comes to completing a "Bachelor's degree or higher". Investigating the contributing factors could also be an interesting future exploration. Overall, we can see there is a clear disproportionate education attainment by race in the county.
 
 ```{r}
 bay_race_total <-
@@ -133,41 +170,6 @@ plot_filled <-
 plot_filled
 ```
 
-
-```{r}
-plot_stacked <-
-  bay_educ_race %>% 
-    group_by(education, race) %>% 
-    summarize(estimate = sum(estimate)) %>% 
-    ggplot() +
-    geom_bar(
-      aes(
-        x = education %>% factor(levels = rev(c("Less than high school diploma", "High school graduate (includes equivalency)", "Some college or associate's degree", "Bachelor's degree or higher"))),
-        y = estimate,
-        fill = race %>% factor(levels = rev(unique(bay_educ_race$race)))
-      ),
-      stat = "identity",
-      position = "stack"
-    ) +
-    labs(
-      x = "Level of Educational Attainment",
-      y = "Proportion of individuals",
-      title = "Santa Clara educational attainment by race",
-      fill = "Race of individual"
-    ) +
-    coord_flip() +
-    theme(
-      legend.position = "bottom",
-      legend.direction = "vertical"
-    )  +
-    guides(
-      fill = guide_legend(
-        reverse = T
-      )
-    )
-
-plot_stacked
-```
 
 
 6.5 assignment
