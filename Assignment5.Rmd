@@ -64,7 +64,7 @@ ces4_map <- ces4_clean %>%
 #mapview(ces4_map, zcol = "PM2.5")
 ```
 
-The graphs you will see below use CalEnviroScreen 4.0 Data which refers to the year of 2020.
+The graphs  below use CalEnviroScreen 4.0 Data which refers to the year of 2020.
 
 There is a total of 21 indicators, including Asthma and PM2.5 which we will closely look at. "Each indicator is assigned a score for each census tract in the state based on the most up-to-date suitable data. Scores are weighted and added together within the two groups to derive a pollution burden score and a population characteristics score. Those scores are multiplied to give the final CalEnviroScreen score."
 
@@ -72,7 +72,7 @@ Asthma Indicator: spatially modeled, age-adjusted rate of ED visits for asthma p
 
 PM 2.5 Indicator: annual mean concentration of PM2.5 (weighted average of measured monitor concentrations and satellite observations, μg/m3)
 
-The first map graphically displays Asthma indicator levels throughout the Bay Area while the second graph does the same for PM2.5 concentration as a means of measuring air quality.
+The first map graphically displays PM2.5 concentration as a means of measuring air quality while the second graph does the same for Asthma indicator levels throughout the Bay Area.
 
 ```{r}
 #from book
@@ -108,6 +108,7 @@ pm25_pal <- colorNumeric(
   palette = "Reds",
   domain = ces4_bay_pm25$PM2.5
 )
+
 
 leaflet() %>% 
   addProviderTiles(providers$CartoDB.Positron) %>% 
