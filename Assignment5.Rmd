@@ -35,7 +35,7 @@ ces4_clean <-
 
 #sum(is.na(ces4_clean$Poverty))
 
-ca_tracts <- tracts("CA")
+ca_tracts <- tracts("CA", cb = T, progress_bar = F)
 
 bay_county_names <-
   c(
@@ -59,9 +59,9 @@ ces4_map <- ces4_clean %>%
   ) %>%
   st_as_sf()
 
-mapview(ces4_map, zcol = "Asthma")
+#mapview(ces4_map, zcol = "Asthma")
 
-mapview(ces4_map, zcol = "PM2.5")
+#mapview(ces4_map, zcol = "PM2.5")
 ```
 
 The graphs you will see below use CalEnviroScreen 4.0 Data which refers to the year of 2020.
