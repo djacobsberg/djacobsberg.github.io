@@ -64,7 +64,7 @@ sf_pumas <-
   st_as_sf()
 ```
 
-Here is a map of the PUMAs in the San Francisco County:
+First, this is a map of the PUMAs in the San Francisco County:
 ```{r}
 leaflet() %>%
   addTiles() %>% 
@@ -142,6 +142,7 @@ sf_pums_factored <-
   )
 ```
 
+Below is a summary of the logit model I made. It is interesting to note that the intercept estimate = -22.74. In terms of geographical areas, it is also useful to know thay there are two PUMAs with significantly higher correlations, 07503 and especially 07502.
 
 ```{r}
 logit_model <- glm(
@@ -153,7 +154,7 @@ logit_model <- glm(
 summary(logit_model)
 ```
 
-Here is a random prediction for the current model:
+Here is a random prediction for the current model (keep in mind, this value will be different for every run due to randomness):
 
 ```{r}
 random_predict <-
@@ -161,8 +162,6 @@ random_predict <-
 
 random_predict
 ```
-
-Keep in mind, this value will change after every run.
 
 ```{r}
 model_predict <-
@@ -175,9 +174,7 @@ sf_pums_binded <-
   cbind(model_predict)
 ```
 
-bld = 2
-mv = 3 or 4
-ten = 3 or 4
+After having combined the model predictions to the acs data, and looking at those which the model predictions > 0.1, it is possible to spot some common characteristics across the board. The most common units in structure (BLD) category was one-family house detached. Also, most moved into this house or apartment from 2 to 9 years ago, and tenure status is usually rented or occupied without payment of rent.
 
 ```{r}
 summary_2x2 <-
@@ -195,14 +192,4 @@ summary_2x2 <-
 summary_2x2
 ```
 
-rarely owned
-
-
-2200 are correct
-27 + 4 how many the models says need help
-33 + 4 are how many actually need help
-but only 4/37 get the help
-
-get more accurate model and then
-have inspections 30 days after kit receival at houses that need help
-
+From this 2x2 table, we can understand that 2200 are correct as both the model and data indicate they are safe. 27 + 4 = 31 are how many the model indicates need help while 33 + 4 = 37 are how mnay the data indicates need help. In any case, 4/37 are the only ones that get the help they need. In order to improve this strategy, I would first try to improve the model, especially as there is data available. Once the model is able to return a more accurate result, I would increase the number of kits sent accordingly and potentially even follow-up with an inspection at those houses whithin the next 30 days after kit receival.
