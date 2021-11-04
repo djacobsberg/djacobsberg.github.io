@@ -215,6 +215,8 @@ model_log <- lm(log(Asthma) ~ PM2.5, bay_asthma_pm_tract)
 summary(model_log)
 ```
 
+Now, "An increase of PM2.5 in one unit is associated with an increase of log(Asthma) in 0.356”; “10.03% of the variation in PM2.5 is explained by the variation in log(Asthma)".
+
 This plot of the residuals of the log function has it's highest density concentrated around 0 showing the accuracy of this new model. Compared to the same graph of the original data, there is a visible shift to the right.
 
 ```{r}
@@ -222,7 +224,7 @@ plot(density(residuals(model_log)))
 
 ```
 
-Combining the residuals with spatial information, we can see how the accuracy of the model varies according to location. From my understanding, a low residual represents a high accuracy of the modelled regression and the data collected, meaning it could be used to make reasonable estimates. A positive residual represents an overestimation while a negative value represents an underestimation. 
+Combining the residuals with spatial information, we can see how the accuracy of the model varies according to location. From my understanding, a low residual represents a high accuracy of the modelled regression and the data collected, meaning it could be used to make reasonable estimates. A positive residual represents an underestimation while a negative value represents an overestimation. 
 
 As seen in the map, the area with lowest residual is Stanford's campus with a -2.004 value.
 
