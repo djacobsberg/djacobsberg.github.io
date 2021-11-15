@@ -1,0 +1,181 @@
+---
+title: "Final"
+author: "Daphne Jacobsberg"
+date: "11/5/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+```
+
+```{r}
+library(tidyverse)
+library(sf)
+library(tigris)
+library(censusapi)
+library(mapview)
+library(devtools)
+library(leaflet)
+
+Sys.setenv(CENSUS_KEY="c8aa67e4086b4b5ce3a8717f59faa9a28f611dab")
+```
+
+```{r}
+pums_2019_1yr <- getCensus(
+  name = "acs/acs1/pums",
+  vintage = 2019,
+  region = "public use microdata area:*", 
+  regionin = "state:06",
+  vars = c(
+    "SERIALNO",
+    "SPORDER",
+    "PWGTP",
+    "WGTP",
+    "NP",
+    "HINCP",
+    "RWAT",
+    "NAICSP",
+    "FS"
+  )
+)
+```
+
+
+```{r}
+ca_pumas <-
+  pumas("CA", cb = T, progress_bar = F)
+
+project_county_names <-
+  c(
+    "Alameda",
+    "San Francisco"
+  )
+
+bay_counties <-
+  counties("CA", cb = T, progress_bar = F) %>%
+  filter(NAME %in% project_county_names)
+
+bay_pumas <-
+  ca_pumas %>% 
+  st_centroid() %>% 
+  .[bay_counties, ] %>% 
+  st_drop_geometry() %>% 
+  left_join(ca_pumas %>% select(GEOID10)) %>% 
+  st_as_sf()
+
+bay_pums <-
+  pums_2019_1yr %>% 
+  mutate(
+    PUMA = str_pad(public_use_microdata_area,5,"left","0")
+  ) %>% 
+  filter(PUMA %in% bay_pumas$PUMACE10)
+
+```
+
+```{r}
+bay_pums_groceries <-
+  bay_pums %>% 
+  filter(!duplicated(SERIALNO)) %>% 
+  mutate(
+    WGTP = as.numeric(WGTP),
+    groceries_lowinc = ifelse(
+        (NAICSP = 44511) &
+        (HINCP < 66000),
+      WGTP,
+      0
+    )
+  ) %>% 
+  group_by(SERIALNO) %>% 
+  summarize(
+    perc_groceries_lowinc =
+      sum(groceries_lowinc, na.rm =T)/sum(WGTP, na.rm = T)*100
+  ) %>% 
+  left_join(
+    bay_pumas %>% 
+      select(PUMACE10),
+    by = c("PUMA" = "PUMACE10")
+  ) %>% 
+  st_as_sf()
+
+
+bay_pums_conv <-
+  bay_pums %>% 
+  filter(!duplicated(SERIALNO)) %>% 
+  mutate(
+    WGTP = as.numeric(WGTP),
+    conv_lowinc = ifelse(
+        (NAICSP = 44512) &
+        (HINCP < 66000),
+      WGTP,
+      0
+    )
+  ) %>% 
+  group_by(SERIALNO) %>% 
+  summarize(
+    perc_conv_lowinc =
+      sum(conv_lowinc, na.rm =T)/sum(WGTP, na.rm = T)*100
+  ) %>% 
+  left_join(
+    bay_pumas %>% 
+      select(PUMACE10),
+    by = c("PUMA" = "PUMACE10")
+  ) %>% 
+  st_as_sf()
+```
+
+
+```{r}
+pums_pal <- colorNumeric(
+  palette = "PuRd",
+  domain = bay_pums_groceries$perc_groceries_lowinc
+)
+
+leaflet() %>%
+  addTiles() %>% 
+  addPolygons(
+    data = bay_pums_groceries,
+    fillColor = ~pums_pal(perc_groceries_lowinc),
+    color = "gray",
+    opacity = 0.5,
+    fillOpacity = 0.5,
+    weight = 1,
+    label = ~paste0(
+      round(perc_groceries_lowinc), 
+      "% households with access to grocery stores making less than $67K"
+    ),
+    highlightOptions = highlightOptions(
+      weight = 2,
+      opacity = 1
+    )
+  )
+
+
+
+pums_pal <- colorNumeric(
+  palette = "PuRd",
+  domain = bay_pums_conv$perc_conv_lowinc
+)
+
+leaflet() %>%
+  addTiles() %>% 
+  addPolygons(
+    data = bay_pums_conv,
+    fillColor = ~pums_pal(perc_conv_lowinc),
+    color = "gray",
+    opacity = 0.5,
+    fillOpacity = 0.5,
+    weight = 1,
+    label = ~paste0(
+      round(perc_conv_lowinc), 
+      "% households with access to convenience stores making less than $67K"
+    ),
+    highlightOptions = highlightOptions(
+      weight = 2,
+      opacity = 1
+    )
+  )
+```
+
