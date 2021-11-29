@@ -1,0 +1,13 @@
+name: Assignment9
+title: Assignment9
+username:
+account: djacobsberg
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 5198180
+bundleId: 5290211
+url: https://djacobsberg.shinyapps.io/Assignment9/
+when: 1637785961.59841
+lastSyncTime: 1637785961.59843
+asMultiple: FALSE
+asStatic: FALSE
