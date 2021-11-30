@@ -449,45 +449,46 @@ logit_model <- glm(
 summary(logit_model)
 ```
 
-Data Dictionary:
+Data Dictionary: <br>
 Here are the meanings of the outcomes for each of the factors of our model.
-
-Tenure
-  1.Owned with mortgage or loan (include home equity loans)
-  2.Owned free and clear
-  3.Rented
-  4.Occupied without payment of rent
+<br>
+Tenure <br>
+  1.Owned with mortgage or loan (include home equity loans) <br>
+  2.Owned free and clear <br>
+  3.Rented <br>
+  4.Occupied without payment of rent <br>
   
-Kitchen
-Complete kitchen facilities?
-  b.N/A (GQ)
-  1.Yes, has stove or range, refrigerator, and sink with a faucet
-  2.No
+Kitchen <br>
+Complete kitchen facilities <br>
+  1.Yes, has stove or range, refrigerator, and sink with a faucet <br>
+  2.No <br>
   
-Building
-Units in structure?
-  bb.N/A (GQ)
-  01.Mobile home or trailer
-  02.One-family house detached
-  03.One-family house attached
-  04.2 Apartments
-  05.3-4 Apartments
-  06.5-9 Apartments
-  07.10-19 Apartments
-  08.20-49 Apartments
-  09.50 or more apartments
-  10.Boat, RV, van, etc.
+Building <br>
+Units in structure <br>
+  01.Mobile home or trailer <br>
+  02.One-family house detached <br>
+  03.One-family house attached <br>
+  04.2 Apartments <br>
+  05.3-4 Apartments <br>
+  06.5-9 Apartments <br>
+  07.10-19 Apartments <br>
+  08.20-49 Apartments <br>
+  09.50 or more apartments <br>
+  10.Boat, RV, van, etc. <br>
   
 <br>
 
-Results from logit model:
-Building Type: No strong correlation between Building Type and SNAP Allocation + Income.
-Tenure: Although not drastically different, renters are mroe likely to be allocated SNAP than owners.
+Results from logit model: <br>
+Building Type: there is a statistically significant correlation between building types 2 and 3 with SNAP Allocation + Income. These are one-family houses detached/attached. They have a negative estimate. Most of the buildings in fact, have a negative association with SNAP allocation. The effect size of buildings (effect size of -16.64 to -0.54) have an overall negative relationship.
 <br>
-Kitchen: Outcome 1 signifies "has a kitchen" however, the results are statistically insignificant. Clearly, this factor displays no correlation and disproves our initial hypothesis that there would be a strong correlation. Outcome 2 means "has no kitchen" and thus makes sense to result in NA as there is no data.
+Tenure: Although not drastically different, renters are more likely to be allocated SNAP than owners. This is expected and support our hypothesis. The effect size of tenure (effect size ranging from -1.94 to -1.90) has an overall negative relationship.
 <br>
-PUMA: While all other PUMAs seem to be fairly unbiased, PUMA 07504 in San Francisco County corresponding to The Mission, Castro, Duboce Triangle and Haight Ashbury, have a strongly negative correlation with SNAP Allocation. Thus, very few people in the area have income below 66000/year and are eligible for SNAP.
+Kitchen: Outcome 1 signifies "has a kitchen" and the results are statistically insignificant. Outcome 2 means "has no kitchen" and the NA data is most likely due to high levels of colinearity between two or more varaibles. This is incredibly important, though sadly, not statistically significant. Though, common sense would lead to that same conclusion.  The effect size of kitchen access (effect size is 0.62) has an overall positive relationship.
+<br>
+PUMA: The two most statistically significant PUMAS are PUMA 00104 and PUMA 00107. Both of which have positive correlation. PUMA 00104 has an effect size of 0.838 which is a positive relationship with SNAP allocation and PUMA 00107 has an effect size of 0.752, which alsl shows a positive relationship with SNAP allocation.
+<br>
 
+The coefficents are so small, they have effectively centered around 0. That is to say, "controlling" for SNAP aalocation yields a very small association (but still signficant as per the asterisks) between our other variables--income, building, kitchen, and tenure. There may be a big causal mechanism here, but we cannot make claims about the shared variation in observation. 
 <br>
 <br>
 
@@ -833,7 +834,7 @@ one_stacked <-
     labs(
       x = "Counties",
       y = "Number of individuals",
-      title = "Individuals whose households are beyond <br> a 1 mile radius of a grocery store by race",
+      title = "Individuals whose households are beyond\na 1 mile radius of a grocery store by race",
       fill = "Race of individual"
     ) +
     coord_flip() +
@@ -868,7 +869,7 @@ one_filled <-
     labs(
       x = "Counties",
       y = "% of individuals",
-      title = "% of individuals whose households are beyond <br> a 1 mile radius of a grocery store by race",
+      title = "% of individuals whose households are beyond\na 1 mile radius of a grocery store by race",
       fill = "Race of individual"
     ) +
     coord_flip() +
@@ -939,7 +940,7 @@ half_filled <-
     labs(
       x = "Counties",
       y = "% of individuals",
-      title = "% of individuals whose households are beyond <br> a .5 mile radius of a grocery store by race",
+      title = "% of individuals whose households are beyond\na .5 mile radius of a grocery store by race",
       fill = "Race of individual"
     ) +
     coord_flip() +
@@ -967,6 +968,13 @@ Additionally, we tried to do the same for a 10 mile radius but there was no data
 
 Reflection
 <br>
+<br>
 In further work, perhaps next quarter, it would be very interesting to plot the individual grocery stores on a map and layer our equity analysis on top of that to see a really clear relationship between race and food access. Our hypothesis that there was a relationship between food access and race was mostly supported by our analyses, so it would be great to further this exploration with more tools next quarter.  
 
 This project gave us the opportunity to delve deeper into a serious issue within the Bay Area using our fall quarter tool kit. Though much of our analysis was pretty surface level, we were still able to create meaningful results with statistical significance.
+
+
+
+
+<br>
+<br>
