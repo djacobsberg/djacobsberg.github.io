@@ -7,9 +7,9 @@ editor_options:
   chunk_output_type: console
 ---
 
-Food insecurity is one of the most significant environmental justice challenges in the United States, with more than 42 million people. Approximately 10.5% of US households experience some form of food insecurity. Hunger in America has been exacerbated by the COVID-19 pandemic, impacting families already facing hunger the most. Before the pandemic, more than 12 million children lived in food-insecure households, with that number now increasing to 13 million. BIPOC communities face the highest rates of starvation and hunger in the nation. 11.5% of people identify as food insecure within the Bay Area, with only 38% of them qualifying for food stamps. There are many ways to quantify food insecurity but access to healthy foods has been recognized as of greatest importance.
+Food insecurity is one of the most significant environmental justice challenges in the United States, with more than 42 million people. Approximately 10.5% of US households experience some form of food insecurity. Hunger in America has been exacerbated by the COVID-19 pandemic, impacting families already facing hunger the most. Before the pandemic, more than 12 million children lived in food-insecure households, with that number now increasing to 13 million. BIPOC communities face the highest rates of starvation and hunger in the nation. 11.5% of people identify as food insecure within the Bay Area, with only 38% of them qualifying for food stamps. There are many ways to quantify food insecurity but easy access to supermarkets is what we will be focusing on.
 
-In determining the areas vulnerable to low access to healthy foods, three measures were used to create an index: household income, Hispanic/Latino ethnicity, and eligibility for SNAP. The USDA has developed a food access database that presents data by census tract for measures of supermarket accessibility. We aim to compare Alameda County, one of the areas facing greatest food insecurity in the Bay, with San Francisco County. Both are equally urban and densely populated areas but have drastically different food health and food access issues.
+The USDA has developed a food access database that presents data by census tract for measures of supermarket accessibility. We aim to compare Alameda County, one of the areas facing greatest food insecurity in the Bay, with San Francisco County. Both are equally urban and densely populated areas but have drastically different food health and food access issues.
 
 Is there a statistical correlation between race, SNAP eligibility, and food access? What is the relationship between race and SNAP eligibility? What is the relationship between food access and income? What is the relationship between cardiovascular health and income level? Through those questions, we will draw conclusions between race, SNAP, health metrics, and income. We chose SNAP because it sits at the intersection of food and income in a single variable. Also, we acknowledge that this is not an exclusively urban problem (there is much evidence of food insecurity in rural areas), however, the urban setting exacerbates a lot of the issues detailed above.
 
@@ -323,6 +323,15 @@ Compared the totals, the proportion of white people qualifying for SNAP decrease
 
 Correlation between building type, SNAP allocation, income and tenure
 (by PUMAs)
+
+<br>
+
+
+Let’s return to ACS data and compare four different variables in the Bay Area at the tract level: building type, SNAP allocation (was this household allocated SNAP), tenure (owned or rented)  and income. Our hypothesis is that some of these variables would be correlated––for example, home ownership below a certain income bracket is very uncommon, thus we could correlate income to home ownership. Common sense (which we have learnt not to trust) tells us that these outcomes are likely to be related: if one is high for a random census tract, we imagine the other would also be high.
+
+To do so, we created a new binary variable, named allocated, in which income is necessarily below 66k/yr and the household was allocated SNAP benefits. This allows us to control for income which is essential, given that is the main definition for SNAP eligibility, and we are interested in investigating additional explanatory power besides income.
+
+Our results for our logit model are below.
 ```{r}
 #extracted relevant variables from pums data for California
 
@@ -439,6 +448,37 @@ logit_model <- glm(
 
 summary(logit_model)
 ```
+
+Data Dictionary:
+Here are the meanings of the outcomes for each of the factors of our model.
+
+Tenure
+  1.Owned with mortgage or loan (include home equity loans)
+  2.Owned free and clear
+  3.Rented
+  4.Occupied without payment of rent
+  
+Kitchen
+Complete kitchen facilities?
+  b.N/A (GQ)
+  1.Yes, has stove or range, refrigerator, and sink with a faucet
+  2.No
+  
+Building
+Units in structure?
+  bb.N/A (GQ)
+  01.Mobile home or trailer
+  02.One-family house detached
+  03.One-family house attached
+  04.2 Apartments
+  05.3-4 Apartments
+  06.5-9 Apartments
+  07.10-19 Apartments
+  08.20-49 Apartments
+  09.50 or more apartments
+  10.Boat, RV, van, etc.
+  
+<br>
 
 Results from logit model:
 Building Type: No strong correlation between Building Type and SNAP Allocation + Income.
@@ -608,7 +648,7 @@ ggplot(
   geom_smooth(method = "lm")
 ```
 
-The scatter plot still does not show a clear relationship as there are several outliers. The biggest difference between this scatter plot and the previous one is that the y axis has a smaller range.
+The scatter plot still does not show a clear relationship as there are several outliers: most points do not follow our line of best fit and are not within the margin of error. Points are mostly within the left side of the graph however range the full y-axis.
 
 ```{r}
 model_log <- lm(log(`Cardiovascular Disease`) ~ Poverty, bay_cardio_poverty_tract)
@@ -616,13 +656,13 @@ model_log <- lm(log(`Cardiovascular Disease`) ~ Poverty, bay_cardio_poverty_trac
 summary(model_log)
 ```
 
-In this case, an increase of Cardiovascular Disease in one unit is associated with an increase of Poverty in 2.19; 4.0% of the variation in Cardiovascular Disease is explained by the variation in Poverty. The p-value of 2.18e-06 is <5% making these results statistically significant.
+In this case, an increase of log(Cardiovascular Disease) in one unit is associated with an increase of Poverty in 2.19; 4.0% of the variation in log(Cardiovascular Disease) is explained by the variation in Poverty. The p-value of 2.18e-06 is <5% making these results statistically significant.
 
 ```{r}
 plot(density(residuals(model_log)))
 ```
 
-While the results with log are marginally better, they are still not fully normalized but allow us to draw some conclusions with caution. It shows that the data has a relatively normal distribution and so, that there is some sort of correlation between Cardiovascular Disease and Poverty.
+While the results with log are marginally better, they are still not fully normalized but allow us to draw some conclusions with caution. This fairly validates our previous interpretation of the scatter plot and further enforces the lack of correlation between Cardiovascular Disease and Poverty.
 
 ```{r}
 #geographically mapping the residuals
@@ -656,17 +696,19 @@ leaflet() %>%
   )
 ```
 
-The lowest residuals are concentrated around the San Francisco area while the highest residuals are in Alameda County. This shows that the actual data for San Francisco is similar to the results from our model regression. On the other hand, Alameda County, and especially the shoreline communities, have really skewed data meaning our regression results were significantly different from the actual data.
+A low residual represents a high accuracy of the modelled regression and the data collected, meaning it could be used to make reasonable estimates. A positive residual represents an underestimation while a negative value represents an overestimation.
+<br>
+Residuals ranging from -1 to .8 show a high accuracy of our model compared to the data. The negative residuals (lighter colors) are concentrated around the San Francisco area while the positive residuals (darker colors) are in Alameda County. This shows a higher concentration of overestimation in San Francisco while Alameda has a higher concentration of underestimation.
 
 <br>
 <br>
 
-Equity Analysis of Individuals within a 10-mile range of a grocery store (food desert)
+Equity Analysis of Individuals within a 1-mile range of a grocery store (food desert)
 
 <br>
 <br>
 
-The USDA defines food deserts as both low income areas and ones in which more than a third of the pop at the census tract level lives over a mile from a grocery store or supermarket (10 miles for rural areas). Below is a map of the low income and low access tracts measured at one mile (given all urban areas).
+The USDA defines food deserts as both low income areas and ones in which more than a third of the population at the census tract level lives over a mile from a grocery store or supermarket (10 miles for rural areas). Below is a bar chart detailing the number of individuals whose households are beyond a 1 mile radius of a grocery store by race within our two counties of interest.
 ```{r}
 #these were some of our first attempts at accessing the USDA data
 #see chunk below for final attempt
@@ -706,115 +748,8 @@ The USDA defines food deserts as both low income areas and ones in which more th
 #   filter(County %in% c("Alameda County", "San Francisco County")) %>%
 #   select(-c("Urban", "State", "GroupQuartersFlag", "NUMGQTRS", "PCTGQTRS", "lakids1", "lakids1share", "laseniors1", "laseniors1share", "lakids10", "lakids10share", "laseniors10", "laseniors10share", "lakids20", "lakids20share", "laseniors20", "laseniors20share")) %>%
 #   select(c("CensusTract", "LILATracts_1And10"))
-```
 
-```{r}
-#downloaded food atlas data, combined race categories and cleaned to achieve table with estimates for race breakdown and county breakdown (again, Alameda and San Francisco only)
 
-data_2019 <- read_excel("FoodAccessResearchAtlasData2019.xlsx", sheet = 3)
-
-data_2019_equity <-
-  data_2019 %>%
-  filter(County %in% c("Alameda County", "San Francisco County")) %>%
-  select(c("County", "lawhite1", "lablack1", "laasian1", "lanhopi1", "laaian1", "laomultir1")) %>%
-  filter(lawhite1 != "NULL") %>%
-  pivot_longer(
-    starts_with("la"),
-    names_to = "race",
-    values_to = "estimate"
-  ) %>%
-  mutate(
-    race = case_when(
-      race == "lawhite1" ~ race_categories[1],
-      race == "lablack1" ~ race_categories[2],
-      race == "laasian1" ~ race_categories[4],
-      race == "lanhopi1" ~ race_categories[5],
-      race == "laaian1" ~ race_categories[3],
-      race == "laomultir1" ~ race_categories[7],
-    )
-  )
-  
-equity_clean <-
-  data_2019_equity %>%
-  mutate(
-    estimate = as.numeric(estimate),
-    estimate = round(estimate)
-  ) %>%
-  group_by(race, County) %>%
-  summarise(estimate = sum(estimate))
-  
-```
-
-```{r}
-race_stacked <-
-  equity_clean %>% 
-    ggplot() +
-    geom_bar(
-      aes(
-        x = County,
-        y = estimate,
-        fill = race %>% factor(levels = rev(unique(equity_clean$race)))
-      ),
-      stat = "identity",
-      position = "stack"
-    ) +
-    labs(
-      x = "Counties",
-      y = "Number of individuals",
-      title = "Individuals within 10 mile range of x by race",
-      fill = "Race of individual"
-    ) +
-    coord_flip() +
-    theme(
-      legend.position = "bottom",
-      legend.direction = "vertical"
-    )  +
-    guides(
-      fill = guide_legend(
-        reverse = T
-      )
-    )
-
-race_stacked
-```
-
-Clearly, Alameda has a drastically larger overall population, making this graph limited. Thus, we have decided to plot a second graph showing % instead.
-
-```{r}
-race_filled <-
-  equity_clean %>% 
-    ggplot() +
-    geom_bar(
-      aes(
-        x = County,
-        y = estimate,
-        fill = race %>% factor(levels = rev(unique(equity_clean$race)))
-      ),
-      stat = "identity",
-      position = "fill"
-    ) +
-    labs(
-      x = "Counties",
-      y = "% of individuals",
-      title = "% of Individuals within 10 mile range of x by race",
-      fill = "Race of individual"
-    ) +
-    coord_flip() +
-    theme(
-      legend.position = "bottom",
-      legend.direction = "vertical"
-    )  +
-    guides(
-      fill = guide_legend(
-        reverse = T
-      )
-    )
-race_filled
-```
-
-This graph however, is very informative and shows that within both San Francisco and Alameda County the race group facing the least food access issues are white people. Next however, in San Francisco is the Black or African American community while in Alameda it is the Asian community. In third, those communities are flipped for the two counties and the only other significant race category is Two or more Races.
-
-```{r}
 # bay_food_map <- data_2019_clean %>% 
 #   st_as_sf(wkt= "LILATracts_1And10", crs = 4326)
 # mapview(bay_food_map)
@@ -845,8 +780,193 @@ This graph however, is very informative and shows that within both San Francisco
 # mapview(sf_cbgs_food, zcol = "within_halfmile_food")
 ```
 
-Reflection
+```{r}
+#downloaded food atlas data, combined race categories and cleaned to achieve table with estimates for race breakdown and county breakdown (again, Alameda and San Francisco only)
 
+data_2019 <- read_excel("FoodAccessResearchAtlasData2019.xlsx", sheet = 3)
+
+data_2019_equity_one <-
+  data_2019 %>%
+  filter(County %in% c("Alameda County", "San Francisco County")) %>%
+  select(c("County", "lawhite1", "lablack1", "laasian1", "lanhopi1", "laaian1", "laomultir1")) %>%
+  filter(lawhite1 != "NULL") %>%
+  pivot_longer(
+    starts_with("la"),
+    names_to = "race",
+    values_to = "estimate"
+  ) %>%
+  mutate(
+    race = case_when(
+      race == "lawhite1" ~ race_categories[1],
+      race == "lablack1" ~ race_categories[2],
+      race == "laasian1" ~ race_categories[4],
+      race == "lanhopi1" ~ race_categories[5],
+      race == "laaian1" ~ race_categories[3],
+      race == "laomultir1" ~ race_categories[7],
+    )
+  )
+  
+equity_clean_one <-
+  data_2019_equity_one %>%
+  mutate(
+    estimate = as.numeric(estimate),
+    estimate = round(estimate)
+  ) %>%
+  group_by(race, County) %>%
+  summarise(estimate = sum(estimate))
+  
+```
+
+```{r}
+one_stacked <-
+  equity_clean_one %>% 
+    ggplot() +
+    geom_bar(
+      aes(
+        x = County,
+        y = estimate,
+        fill = race %>% factor(levels = rev(unique(equity_clean_one$race)))
+      ),
+      stat = "identity",
+      position = "stack"
+    ) +
+    labs(
+      x = "Counties",
+      y = "Number of individuals",
+      title = "Individuals whose households are beyond <br> a 1 mile radius of a grocery store by race",
+      fill = "Race of individual"
+    ) +
+    coord_flip() +
+    theme(
+      legend.position = "bottom",
+      legend.direction = "vertical"
+    )  +
+    guides(
+      fill = guide_legend(
+        reverse = T
+      )
+    )
+
+one_stacked
+```
+
+Clearly, Alameda has a drastically larger overall population, making this graph limited. Thus, we have decided to plot a second graph showing %s instead.
+
+```{r}
+one_filled <-
+  equity_clean_one %>% 
+    ggplot() +
+    geom_bar(
+      aes(
+        x = County,
+        y = estimate,
+        fill = race %>% factor(levels = rev(unique(equity_clean_one$race)))
+      ),
+      stat = "identity",
+      position = "fill"
+    ) +
+    labs(
+      x = "Counties",
+      y = "% of individuals",
+      title = "% of individuals whose households are beyond <br> a 1 mile radius of a grocery store by race",
+      fill = "Race of individual"
+    ) +
+    coord_flip() +
+    theme(
+      legend.position = "bottom",
+      legend.direction = "vertical"
+    )  +
+    guides(
+      fill = guide_legend(
+        reverse = T
+      )
+    )
+one_filled
+```
+
+This graph however, is very informative and shows that within both San Francisco and Alameda County the race group facing the most food access issues are white people. This isn't surprising based on general population demographics (similar to our other equity analysis above). Second however, in San Francisco is the Black or African American community while in Alameda it is the Asian community. For next lowest access, those communities are flipped for the two counties and the only other significant race category is Two or more Races.
+
+<br>
+<br>
+
+Next, we decided to plot the same graph however changed the radius to a half mile radius in order to compared the change in race distributions. It is important to note than population estimates for the 1 mile radius are inclusive of those for the half mile radius. 
+```{r}
+data_2019_equity_half <-
+  data_2019 %>%
+  filter(County %in% c("Alameda County", "San Francisco County")) %>%
+  select(c("County", "lawhitehalf", "lablackhalf", "laasianhalf", "lanhopihalf", "laaianhalf", "laomultirhalf")) %>%
+  filter(lawhitehalf != "NULL") %>%
+  pivot_longer(
+    starts_with("la"),
+    names_to = "race",
+    values_to = "estimate"
+  ) %>%
+  mutate(
+    race = case_when(
+      race == "lawhitehalf" ~ race_categories[1],
+      race == "lablackhalf" ~ race_categories[2],
+      race == "laasianhalf" ~ race_categories[4],
+      race == "lanhopihalf" ~ race_categories[5],
+      race == "laaianhalf" ~ race_categories[3],
+      race == "laomultirhalf" ~ race_categories[7],
+    )
+  )
+  
+equity_clean_half <-
+  data_2019_equity_half %>%
+  mutate(
+    estimate = as.numeric(estimate),
+    estimate = round(estimate)
+  ) %>%
+  group_by(race, County) %>%
+  summarise(estimate = sum(estimate))
+```
+
+
+```{r}
+half_filled <-
+  equity_clean_half %>% 
+    ggplot() +
+    geom_bar(
+      aes(
+        x = County,
+        y = estimate,
+        fill = race %>% factor(levels = rev(unique(equity_clean_one$race)))
+      ),
+      stat = "identity",
+      position = "fill"
+    ) +
+    labs(
+      x = "Counties",
+      y = "% of individuals",
+      title = "% of individuals whose households are beyond <br> a .5 mile radius of a grocery store by race",
+      fill = "Race of individual"
+    ) +
+    coord_flip() +
+    theme(
+      legend.position = "bottom",
+      legend.direction = "vertical"
+    )  +
+    guides(
+      fill = guide_legend(
+        reverse = T
+      )
+    )
+half_filled
+```
+
+
+By comparing these two ranges, we have found a significant change in % of Asian population in San Francisco. It it surprising how big a difference the half mile radius expansion makes with this particular group. The % of individuals whose household are beyond a .5 mile radius of a grocery store is significantly higher than that of a 1 mile radius. We can only speculate that this is because in the city of San Francisco there are a couple of concentrations of Asian communities. We do not have any evidence supporting this result but is simply a potential interpretation that came to mind.
+
+<br>
+
+Additionally, we tried to do the same for a 10 mile radius but there was no data available in this dataset.
+
+<br>
+<br>
+
+Reflection
+<br>
 In further work, perhaps next quarter, it would be very interesting to plot the individual grocery stores on a map and layer our equity analysis on top of that to see a really clear relationship between race and food access. Our hypothesis that there was a relationship between food access and race was mostly supported by our analyses, so it would be great to further this exploration with more tools next quarter.  
 
-This project gave us the opportunity to delve deeper into a serious issue within the Bay Area using our fall quarter tool kit. Though much of our analysis was pretty surface level, we were still able to create meaningful results with statistical significance.  
+This project gave us the opportunity to delve deeper into a serious issue within the Bay Area using our fall quarter tool kit. Though much of our analysis was pretty surface level, we were still able to create meaningful results with statistical significance.
