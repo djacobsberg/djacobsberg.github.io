@@ -899,7 +899,8 @@ equity_clean_one <-
   summarise(estimate = sum(estimate))
 ```
 <br>
-Below is a bar chart detailing the number of individuals whose households are beyond a 1 mile radius of a grocery store by race within our two counties of interest.
+Below is a bar chart detailing the number of individuals whose households are beyond a 1 mile radius of a grocery store by race within our two counties of interest.<br>
+
 ```{r}
 one_stacked <-
   equity_clean_one %>% 
