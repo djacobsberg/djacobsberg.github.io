@@ -172,7 +172,7 @@ plot_ly() %>%
   config(displayModeBar = F)
 ```
 
-We found that Alameda County, Santa Clara, Contra Cost, and San Francisco have the highest number of qualifying households in the Bay Area. Moving on to our equity analysis, we will choose to narrow down to just Alameda County and San Francisco county because of their shared urban density and their differing food health and food access issues which may make them the most interesting to compare. 
+We found that Alameda County, Santa Clara, Contra Costa, and San Francisco have the highest number of qualifying households in the Bay Area. Moving on to our equity analysis, we will choose to narrow down to just Alameda County and San Francisco county because of their shared urban density and their differing food health and food access issues which may make them the most interesting to compare. 
 
 <br>
 <br>
@@ -316,7 +316,7 @@ counties_filled <-
 counties_filled
 ```
 
-Compared the totals, the proportion of white people qualifying for SNAP decreased in both counties, the proportion of Black or African American increased in both counties. In San Francisco, the proportion of Asian people qualifying for SNAP increased slightly, whereas in Alameda county it decreased significantly. Some other race alone, native Hawaiian, American Indian and Alaska Native alone, and two or more races increased in both counties. This is not suprising, and the breakdown follows national trends (proportion of white being greatest, then Black/African American, then Hispanic and Asian). Due to our findings, we will be using Black or African American as our focus racial group from now on (health effects only). Though our results would more likely be different if we included ethnicity, for the purpose of this analysis, we will just be concentrating on race.
+Comparing the totals, the proportion of white people qualifying for SNAP decreased in both counties, the proportion of Black or African American increased in both counties. In San Francisco, the proportion of Asian people qualifying for SNAP increased slightly, whereas in Alameda county it decreased significantly. Some other race alone, native Hawaiian, American Indian and Alaska Native alone, and two or more races increased in both counties. This is not suprising, and the breakdown follows national trends (proportion of white being greatest, then Black/African American, then Hispanic and Asian). Due to our findings, we will be using Black or African American as our focus racial group from now on (health effects only). Though our results would more likely be different if we included ethnicity, for the purpose of this analysis, we will just be concentrating on race.
 <br>
 <br>
 
@@ -861,8 +861,6 @@ leaflet() %>%
     values = ~LALOWI1_10,
     title = "Map of Low Access to a<br> Supermarket (more than 1 mile away)<br> and Low Income Population in<br>Alameda and San Francisco<br>"
   )
-
-
 ```
 
 
