@@ -317,7 +317,6 @@ counties_filled
 ```
 
 Compared the totals, the proportion of white people qualifying for SNAP decreased in both counties, the proportion of Black or African American increased in both counties. In San Francisco, the proportion of Asian people qualifying for SNAP increased slightly, whereas in Alameda county it decreased significantly. Some other race alone, native Hawaiian, American Indian and Alaska Native alone, and two or more races increased in both counties. This is not suprising, and the breakdown follows national trends (proportion of white being greatest, then Black/African American, then Hispanic and Asian). Due to our findings, we will be using Black or African American as our focus racial group from now on (health effects only). Though our results would more likely be different if we included ethnicity, for the purpose of this analysis, we will just be concentrating on race.
-
 <br>
 <br>
 
@@ -481,13 +480,13 @@ Units in structure <br>
 <br>
 
 Results from logit model: <br>
-Building Type: there is a statistically significant correlation between building types 2, 3, 5, 7, 8 and 9 with SNAP Allocation + Income. All of these have negative estimates meaning these variables would have a negative effect on the dependent variable. In other words, it is a decrease in probability. Thus, we can conclude there is no strong relationship between building type and our allocated variable. This means the likelihood that a household in allocated SNAP (and is below 66k/year) is not affected by household type.
+Building Type: there is a statistically significant correlation between building types 2, 3, 5, 7, 8 and 9 with SNAP Allocation + Income. All of these have negative estimates meaning these variables would have a negative effect on the dependent variable. In other words, it is a decrease in probability. Thus, we can conclude there is no strong relationship between building type and our allocated variable. This means the likelihood that a household in allocated SNAP (and is below 66k/year) is not affected by household type.<br>
 <br>
-Tenure: The only statistically significant tenure type is tenure 2. The negative result indicates that those living in homes free and clear of mortgage are less likely to be allocated SNAP than those living in a house owned with a mortgage or loan. This makes sense given the objective of SNAP assistance. Though not statistically significant, it is interesting to note that tenure 4, which means occupied without payment of rent (including shelters) has a positive result. This indicates that those living in tenure type 4 are more likely to have a correlation with SNAP allocation. 
+Tenure: The only statistically significant tenure type is tenure 2. The negative result indicates that those living in homes free and clear of mortgage are less likely to be allocated SNAP than those living in a house owned with a mortgage or loan. This makes sense given the objective of SNAP assistance. Though not statistically significant, it is interesting to note that tenure 4, which means occupied without payment of rent (including shelters) has a positive result. This indicates that those living in tenure type 4 are more likely to have a correlation with SNAP allocation. <br>
 <br>
-Kitchen: There is, once again, a negative result for kitchen and is statistically insignifant, thus there's no reason to comment on the result. 
+Kitchen: There is, once again, a negative result for kitchen and is statistically insignifant, thus there's no reason to comment on the result. <br>
 <br>
-PUMA: The three most statistically significant PUMAS are PUMA 00106, 07501 and 07502. Both of which have positive correlation. Check the map below to see what geographical areas these PUMAs correspond to. Interestingly, the two PUMAs in San Francisco county are the ones with a positive effect size while the one in Alameda county has a negative effect size. This is incredibly meaningful as it shows those in these two PUMAs of San Francisco are more likely to be allocated SNAP. Constrastingly, those in the 00106 PUMA of Alameda are less likely to be allocated SNAP. This is also coherent with the poverty levels for these areas (higher in San Francisco than in Alameda) which are visible in our Poverty map shown below in the CalEnviroScreen section of our research.
+PUMA: The three most statistically significant PUMAS are PUMA 00106, 07501 and 07502. Both of which have positive correlation. Check the map below to see what geographical areas these PUMAs correspond to. Interestingly, the two PUMAs in San Francisco county are the ones with a positive effect size while the one in Alameda county has a negative effect size. This is incredibly meaningful as it shows those in these two PUMAs of San Francisco are more likely to be allocated SNAP. Constrastingly, those in the 00106 PUMA of Alameda are less likely to be allocated SNAP. This is also coherent with the poverty levels for these areas (higher in San Francisco than in Alameda) which are visible in our Poverty map shown below in the CalEnviroScreen section of our research.<br>
 <br>
 
 ```{r}
@@ -519,8 +518,6 @@ leaflet() %>%
   )
 ```
 <br>
-
-The coefficents are so small, they have effectively centered around 0. That is to say, "controlling" for SNAP aalocation yields a very small association (but still signficant as per the asterisks) between our other variables--income, building, kitchen, and tenure. There may be a big causal mechanism here, but we cannot make claims about the shared variation in observation. 
 <br>
 <br>
 
@@ -632,6 +629,7 @@ leaflet() %>%
 The indicator used by CalEnviroScreen for Poverty is the percent of the population with income less than two times the Federal Poverty level. The Federal Poverty level for 2021 is 26,500 dollars. We chose Poverty as an indicator because under Federal rules to qualify for SNAP, household income must be at or below 130% of the poverty threshold making this analysis valuable for our project's goal. 
 
 In comparison to the previous map, this map shows a much more even distributed distribution of poverty households in each county. There are equally as low or high poverty levels in both areas.
+<br>
 
 ```{r}
 #scatter plot to show correlation between two factors in graph
@@ -655,7 +653,9 @@ ggplot(
   geom_smooth(method = "lm")
 ```
 
-Scatter plot does not show a clear relationship, there are several outliers and the points themselves almost appear to be random.
+The scatter plot above does not show a clear relationship, there are several outliers and the points themselves almost appear to be random.
+<br>
+Next, here is our model:
 
 ```{r}
 #model shows correlation between two factors in a numerical table
@@ -740,7 +740,7 @@ Lastly, given our inconclusive scatter plot, this analysis has proven itself not
 <br>
 <br>
 
-<h3>Equity Analysis of Individuals beyond a 1-mile range of a grocery store (food deserts) </h3>
+<h3>Equity Analysis of individuals beyond a 1-mile range of a food source (food deserts) </h3>
 
 <br>
 <br>
@@ -934,7 +934,8 @@ one_stacked <-
 one_stacked
 ```
 
-While we know that Alameda County has a larger population (almost double) of that of San Francisco County, the large difference in bar lengths suggests that there an even greater difference in population size. This is consistent with the map above and greaters emptiness in San Francisco indicating fewer respondeses and less data overall. Still, we have decided to plot a second graph showing %s instead so that we can make a more fair comparison and have an opportunity to create takeaways. It is very important that we acknowledge we are making a choice to continue working with incomplete data for educational purposes.
+While we know that Alameda County has a larger population (almost double) of that of San Francisco County, the large difference in bar lengths suggests that there an even greater difference in population size. This is consistent with the map above and greaters emptiness in San Francisco indicating fewer respondeses and less data overall. <br>
+Still, we have decided to plot a second graph showing %s instead so that we can make a more fair comparison and have an opportunity to create takeaways. It is very important that we acknowledge we are making a choice to continue working with incomplete data for educational purposes.
 
 ```{r}
 one_filled <-
@@ -969,8 +970,6 @@ one_filled
 ```
 
 This graph however, is very informative and shows that within both San Francisco and Alameda County the race group facing the most food access issues are white people. This isn't surprising based on general population demographics (similar to our other equity analysis above). Second however, in San Francisco is the Black or African American community while in Alameda it is the Asian community. For next lowest access, those communities are flipped for the two counties and the only other significant race category is Two or more Races.
-
-<br>
 <br>
 
 Next, we decided to plot the same graph however changed the radius to a half mile radius in order to compared the change in race distributions. It is important to note than population estimates for the more than a half mile radius are inclusive of those more than a 1 mile radius. 
@@ -1043,11 +1042,8 @@ half_filled
 
 
 By comparing these two ranges, we have found a significant change in % of Asian population in San Francisco. It it surprising how big a difference the half mile radius decrease makes with this particular group. The % of individuals whose household are beyond a .5 mile radius of a grocery store is significantly higher than that of a 1 mile radius. We can only speculate that a possible reason for this is that there might be a couple clusters of Asian communities in San Francisco. Thus, that have mile difference, would make a huge impact in race based population difference. We do not have any evidence supporting this result but is simply a potential interpretation that came to mind.
-
-
 <br>
 <br>
-
 <h3>Reflection</h3>
 <br>
 <br>
