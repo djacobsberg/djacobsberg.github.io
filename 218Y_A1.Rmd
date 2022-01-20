@@ -1,0 +1,656 @@
+---
+title: "218Y_A1"
+author: "Daphne Jacobsberg with Lena Bakalain and Catherine Beck"
+date: "1/14/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = F, message = F)
+```
+
+```{r}
+library(tidyverse)
+library(tidycensus)
+library(censusapi)
+library(sf)
+library(mapview)
+library(tigris) #census tracts
+library(leaflet)
+library(esri2sf)
+library(plotly)
+library(knitr)
+
+Sys.setenv(CENSUS_KEY="c8aa67e4086b4b5ce3a8717f59faa9a28f611dab")
+```
+
+
+<h5>General views on the proposed Opportunity to Purchase Act (ACT) in East Palo Alto:
+
+1. There is good intent behind the policy and positive motivation can be justified by constantly increasing real estate prices in East Palo Alto and therefore, increasing the burden of living cost for residents.
+2. That said, there is no policy that will ever benefit everyone. It is up to residents, home-owners and renters, and officials to come together to understand which parts of this proposed OPA would be more beneficial than it would be harmful.
+3. Other cities in which OPAs have been implemented are an important source of learning that brings great value. Both sides should make use of these case studies to inform their opinions.
+4. It is clear that the two main points of friction are single-family homes, which are being included in EPA but other cities have shown to not be a fruitful experiment, and non-profits are potential buyers as home-owners believe this would add an extra layer of complexity and bureaucracy. Some of the main concerns include limiting the free market, significantly prolonging the sale process and driving away investors.
+5. Solutions proposed by anti-OPA groups are mostly vague and in my opinion, not entirely thought through. More time should be dedicated towards exploring alternatives and measuring their risks and benefits too.
+<h5>
+
+
+<h3>Housing Cost Analyses<h3>
+
+<h5>The main objective of this first set of anlyses is to quantify the housing affordability issue in East Palo Alto.<h5>
+
+```{r}
+acs_vars_2019_5yr <-
+    listCensusMetadata(
+    name = "2019/acs/acs5",
+    type = "variables"
+  )
+```
+
+
+```{r}
+epa_renter <-
+  getCensus(
+    name = "acs/acs5",
+    vintage = 2019,
+    region = "tract:*", 
+    regionin = "state:06+county:081",
+    vars = "group(B25074)" #household income by gross rent as a percentage of household income
+  ) %>% 
+  select(!c(GEO_ID,state,NAME) & !ends_with(c("EA","MA","M"))) %>%
+  pivot_longer(
+    ends_with("E"),
+    names_to = "name",
+    values_to = "estimate"
+  ) %>%
+  left_join(
+    acs_vars_2019_5yr %>% 
+      select(name, label)
+  )  %>%
+  select(-name) %>%
+  mutate(tract = as.numeric(tract)) %>% 
+  filter(tract %in% c("611800","611900","612000","612100")) %>% 
+  select(-tract) %>% 
+  select(-county) %>% 
+  group_by(label) %>% 
+  separate(
+    label,
+    into = c(NA,NA,"income","percentage"),
+    sep = "!!"
+  ) %>% 
+  group_by(income,percentage) %>% 
+  summarize(estimate = sum(estimate)) %>% 
+  filter(!is.na(income)) %>% 
+  filter(!is.na(percentage)) %>%
+  filter(percentage != "Not computed") %>%
+  mutate(
+  percentage = case_when(
+    percentage %in% c("Less than 20.0 percent", "20.0 to 24.9 percent", "25.0 to 29.9 percent") ~ "No burden",
+    percentage %in% c("30.0 to 34.9 percent", "35.0 to 39.9 percent", "40.0 to 49.9 percent") ~ "Moderate",
+      percentage == ("50.0 percent or more") ~ "Severe"
+  )) %>%
+  mutate(
+    tenure = "Renter"
+  ) 
+
+epa_adjusted <-
+  epa_renter %>%
+  mutate(
+    income = case_when(
+      income == "Less than $10,000:" ~ "Less than $10,000",
+      income == "$10,000 to $19,999:" ~ "$10,000 to $19,999",
+      income == "$20,000 to $34,999:" ~ "$20,000 to $34,999",
+      income == "$35,000 to $49,999:" ~ "$35,000 to $49,999",
+      income == "$50,000 to $74,999:" ~ "$50,000 to $74,999",
+      income == "$75,000 to $99,999:" ~ "$75,000 to $99,999",
+      income == "$100,000 or more:" ~ "$100,000 or more"
+    )
+  )
+
+```
+
+<h5>Following the U.S. Department of Housing and Urban Development and their definition for housing affordability, we set the threshold for being considered moderately burdened at 30% or more of income spent with housing costs and severely burdened at above 50% of income spent with housing costs.<h5>
+```{r}
+#compute housing cost burden as a percentage as well as an absolute dollar amount, given a specific burden threshold, for each record
+
+threshold_moderate <- 0.3 #30% of income on housing costs
+threshold_severe <- 0.5
+```
+
+<h5>The plot below shows the distribution of different income levels per houshold across the three categories for housing burden - no burden (below 30%), moderate (30-50%) and severe (50+%).<h5>
+
+```{r}
+#plot
+burden_stacked <-
+  epa_adjusted %>% 
+    ggplot() +
+    geom_bar(
+      aes(
+        x = percentage %>% factor(c("Severe", "Moderate", "No burden")),
+        y = estimate,
+        fill = income %>% factor(c("$100,000 or more", "$75,000 to $99,999","$50,000 to $74,999", "$35,000 to $49,999", "$20,000 to $34,999", "$10,000 to $19,999", "Less than $10,000"))
+      ),
+      stat = "identity",
+      position = "stack"
+    ) +
+    labs(
+      x = "Burden Level",
+      y = "Number of households",
+      title = "Housing burden within renters",
+      fill = "Income Levels"
+    ) +
+    coord_flip() +
+    theme(
+      legend.position = "bottom",
+      legend.direction = "vertical"
+    )  +
+    guides(
+      fill = guide_legend(
+        reverse = T
+      )
+    )
+burden_stacked
+
+```
+
+<h5>We can see from this graph that the income level that is most representative of those who are below the affordable housing threshold is the largest income, which is quite predictable. This same group is slightly present in the moderate burden level but practically absent from the severe burden level.
+
+The opposite income level, "Less than $10,000" is mostly severely burdened however is more present in no burden than in moderate burden. Within severely burdened, the majority of households belong to the range of $20,000 to $34,999 and $35,000 to $49,999 which correspond to the middle ranges.
+
+As for the moderately burdened households, the predominant income level is $50,00 to $74,999 though it is quite evenly distributed.
+
+This shows us that in general terms, the relationship of burden level to income is inversely proportional, therefore, the lowest income, the highest burden. Though this might sound like common sense, it is important to show this rather than assume.
+
+The implications of this on OPA is that this proves that there is a SIGNIFICANT need for more affordable housing options in East Palo Alto. Comparing the overall length of bars, you can see that while No burden is the longest, thankfully, moderate and severe are not behind. Furthermore, severe is larger than moderate and when put together, are longer than No burden. This indicates that for the majority of renter-occupied households, there is a housing burden upon them. This is worrying and requires immediate but carefully planned action. OPA could be helpful in the sense of converting more renters into owners, which would effectively remove them from this graph. The question here is though, would OPA be an opportunity to everyone on this chart or only to those who are not burdened in the first place?<h5>
+
+
+```{r}
+epa_owner <-
+  getCensus(
+    name = "acs/acs5",
+    vintage = 2019,
+    region = "tract:*", 
+    regionin = "state:06+county:081",
+    vars = "group(B25095)" #household income by selected monthly owner costs as a percentage of household income
+  ) %>% 
+  select(!c(GEO_ID,state,NAME) & !ends_with(c("EA","MA","M"))) %>%
+  pivot_longer(
+    ends_with("E"),
+    names_to = "name",
+    values_to = "estimate"
+  ) %>%
+  left_join(
+    acs_vars_2019_5yr %>% 
+      select(name, label)
+  )  %>%
+  select(-name) %>%
+  mutate(tract = as.numeric(tract)) %>% 
+  filter(tract %in% c("611800","611900","612000","612100")) %>% 
+  select(-tract) %>% 
+  select(-county) %>% 
+  group_by(label) %>% 
+  separate(
+    label,
+    into = c(NA,NA,"income","percentage"),
+    sep = "!!"
+  ) %>% 
+  group_by(income,percentage) %>% 
+  summarize(estimate = sum(estimate)) %>% 
+  filter(!is.na(income)) %>% 
+  filter(!is.na(percentage)) %>%
+  mutate(
+    tenure = "Owner"
+  ) %>%
+    filter(percentage != "Not computed") %>%
+  mutate(
+  percentage = case_when(
+    percentage %in% c("Less than 20.0 percent", "20.0 to 24.9 percent", "25.0 to 29.9 percent") ~ "No burden",
+    percentage %in% c("30.0 to 34.9 percent", "35.0 to 39.9 percent", "40.0 to 49.9 percent") ~ "Moderate",
+      percentage == ("50.0 percent or more") ~ "Severe"
+  ))
+
+epa_combined <-
+  epa_renter %>%
+  rbind(epa_owner)
+```
+<br>
+<br>
+<br>
+
+<h5>Now, let's talk a bit about owner vs renter distributions...
+
+Firstly, here is a table showing the overall breakdown of owner vs renter occupied units in East Palo Alto in absolute terms.<h5>
+
+```{r}
+#overall breakdown of owner vs renter occupied units
+renter_occupied <- 
+  epa_combined %>% 
+  select(-c(income,percentage)) %>% 
+  group_by(tenure) %>% 
+  summarize(estimate = sum(estimate))
+
+kable(renter_occupied, caption = "Number of owner-occupied and renter-occupied untis")
+```
+<h5> As you can see, there is a majority of owner-occupied units.
+<br>
+<br>
+When expressing this in percentages:
+
+```{r}
+#overall % of renter-occupied units
+
+renter_total <-
+  renter_occupied%>% 
+  mutate(
+    total = sum(estimate)
+  ) %>% 
+  filter(tenure == "Renter")
+
+renter_total$estimate/renter_total$total
+```
+57.8% of units in EPA are renter-occupied
+<br>
+<br>
+
+```{r}
+#overall % of owner-occupied units
+1-(renter_total$estimate/renter_total$total)
+```
+
+While  42.2% are owner-occupied.
+<br>
+<br>
+
+<h5> Moderately Burdened renter vs owner breakdown<h5>
+<br>
+Within moderately burdened households...
+
+```{r}
+#% of moderately burdened households are renter households
+mod_burdened_renter <-
+  epa_combined %>% 
+  filter(percentage == "Moderate") %>% 
+  select(-c(income,percentage)) %>%
+  group_by(tenure) %>% 
+  summarize(estimate = sum(estimate)) %>% 
+  mutate(
+    total = sum(estimate)
+  ) %>% 
+  filter(tenure == "Renter")
+
+mod_burdened_renter$estimate/mod_burdened_renter$total
+```
+
+64.7% are renter-occupied units
+
+```{r}
+#% of moderately burdened households are owner households
+1-(mod_burdened_renter$estimate/mod_burdened_renter$total)
+```
+
+and 35.3% are owner-occupied.
+
+Once again, the data is pointing us towards renters as the most disadvantaged tenure group.
+<br>
+<h5> Severely Burdened renter vs owner breakdown <h5>
+
+Moving onto the severely burdened households...
+
+```{r}
+#% of severely burdened households are renter households
+burdened_renter <-
+  epa_combined %>% 
+  filter(percentage == "Severe") %>% 
+  select(-c(income,percentage)) %>%
+  group_by(tenure) %>% 
+  summarize(estimate = sum(estimate)) %>% 
+  mutate(
+    total = sum(estimate)
+  ) %>% 
+  filter(tenure == "Renter")
+
+burdened_renter$estimate/burdened_renter$total
+```
+
+65.9% of units are renter-occupied
+<br>
+```{r}
+#% of severely burdened households are owner households
+1-(burdened_renter$estimate/burdened_renter$total)
+```
+
+while 34.1% are owner-occupied.
+
+This shows us that the breakdown is consistent within moderately and severely burdened.
+<br>
+<br>
+<br>
+
+<h5>Cost estimates<h5>
+
+In our analysis, it is also important to be able to put a dollar value to this. We begin by estimating the total housing cost in East Palo Alto. This includes all burdened and income levels.
+
+It is important to mention that this calculation required an assumption around income levels. For every range, we assumed all household in that group had the average income and for the largest income level, we assumed a $300,000 income.
+
+```{r}
+#total cost
+total_cost <-
+  epa_combined %>% 
+  mutate( 
+  income = case_when(
+    income == "$10,000 to $19,999:" ~ "15000",
+    income == "$20,000 to $34,999:" ~ "27500",
+    income == "$35,000 to $49,999:" ~ "47500",
+    income == "$50,000 to $74,999:" ~ "62500",
+    income == "$75,000 to $99,999:" ~ "87500",
+    income == "$100,000 or more:" ~ "300000",
+    income == "$100,000 to $149,999:" ~ "125000",
+    income == "$150,000 or more:" ~ "300000",
+    income == "Less than $10,000:" ~ "5000"
+    )) %>% 
+  mutate(
+    percentage = case_when(
+  percentage == "No burden" ~ "0.15", 
+  percentage == "Moderate" ~ "0.30",
+  percentage == "Severe" ~ "0.50"
+  )) %>% 
+  mutate(
+    dollars = as.numeric(income)*as.numeric(percentage)*as.numeric(estimate)
+  )
+
+sum(total_cost$dollars) %>% prettyNum(",") %>% paste0("$",.)
+```
+Above is the total housing cost in EPA in USD.
+
+However, not all of this is burdened cost. By keeping only moderately and severely burdened, we calculate the total burdened housing cost in EPA.
+```{r}
+#total burdened cost (aka excess)
+total_burdened_cost <-
+  epa_combined %>% 
+  mutate( 
+  income = case_when(
+    income == "$10,000 to $19,999:" ~ "15000",
+    income == "$20,000 to $34,999:" ~ "27500",
+    income == "$35,000 to $49,999:" ~ "47500",
+    income == "$50,000 to $74,999:" ~ "62500",
+    income == "$75,000 to $99,999:" ~ "87500",
+    income == "$100,000 or more:" ~ "300000",
+    income == "$100,000 to $149,999:" ~ "125000",
+    income == "$150,000 or more:" ~ "300000",
+    income == "Less than $10,000:" ~ "5000"
+    )) %>% 
+  mutate(
+    percentage = case_when(
+  percentage == "No burden" ~ "0.15", 
+  percentage == "Moderate" ~ "0.30",
+  percentage == "Severe" ~ "0.50"
+  )) %>% 
+  filter(percentage != "0.15") %>% 
+  mutate(
+    dollars = as.numeric(income)*as.numeric(percentage)*as.numeric(estimate)
+  )
+
+sum(total_burdened_cost$dollars) %>% prettyNum(",") %>% paste0("$",.)
+```
+One way ot think about what this represents is the excess cost.
+
+```{r}
+# percentage excess
+sum(total_burdened_cost$dollars)/sum(total_cost$dollars)
+
+```
+As a percentage of total cost, burden cost represents 44.8%. This stresses the need for some change in the housing system in place.
+
+<h3>Parcel Data Analyses<h3>
+
+<h5> The analyses below uses parcel data to categorize each parcel into one of four categories - those which were renter occupied and remained renter-occupied, those which were owner-occupied but became renter-occupied, those which were and remained owner-occupied and lastly, whose which were renter-occupied and remained owner-occupied.<h5>
+
+```{r}
+epa_zoning <- esri2sf("https://services8.arcgis.com/0IC8hha3hgQkmGoa/arcgis/rest/services/EastPaloAltoZoning_2021_WFL1/FeatureServer/1")
+
+smc_exemption <- read_csv("https://datahub.smcgov.org/api/views/pmvw-bs84/rows.csv?accessType=DOWNLOAD")
+```
+
+```{r}
+epa_exemption <- smc_exemption %>% 
+  mutate(
+    APN = `Parcel Number` %>% 
+      str_replace_all("-","")
+  ) %>% 
+  filter(APN %in% epa_zoning$APN) %>% 
+  left_join(epa_zoning) %>% 
+  st_as_sf() %>% 
+  filter(New_Zone == "R-LD")
+```
+Firstly, here is this information summarized into the form of a table.
+
+```{r}
+epa_changes <-
+  epa_exemption %>%
+  filter(`Fiscal Year` %in% c("2015/2016","2018/2019")) %>%
+  select(`Parcel Number`,`Fiscal Year`,`Net Value`,Exemption, geoms) %>%
+  filter(Exemption <= 7000) %>%
+  #pivot_wider(names_from = `Parcel Number`, values_from = `Net Value`)
+  group_by(`Parcel Number`) %>%
+  arrange(`Fiscal Year`) %>%
+  arrange(`Parcel Number`) %>%
+  mutate(
+    tenure_2016 = first(Exemption),
+    tenure_2019 = last(Exemption)
+  ) %>%
+  mutate(
+    tenure_change = case_when(
+      tenure_2016 == tenure_2019 & tenure_2019 %in% c("5600","7000") ~ "Remained owner-occupied",
+      tenure_2016 != tenure_2019 & tenure_2019 %in% c("5600","7000") ~ "Renter to owner-occupied",
+      tenure_2016 != tenure_2019 & tenure_2019 == 0 ~ "Owner to renter-occupied",
+      tenure_2016 == tenure_2019 & tenure_2019 == 0 ~ "Remained renter-occupied"
+    )
+  ) %>%
+  filter(`Fiscal Year` == "2015/2016") %>%
+  select(-`Fiscal Year`) %>%
+  filter(!is.na(tenure_change))
+
+no_geom <-
+  epa_changes %>%
+  st_drop_geometry()
+
+count <-
+  no_geom %>%
+  ungroup(`Parcel Number`) %>%
+  select(tenure_change) %>%
+  group_by(tenure_change) %>%
+  count()
+
+kable(count, caption = "Comparison of tenure status from 2016 to 2019")
+
+
+
+```
+
+We can see that the the two most significant categories are the ones representing properties that remained in the same tenure status. This allows us to make an argument that supports OPA as it shows us the conversion from owner to renter-occupied or renter to owner-occupied is rare. As we have seen above, facilitating this could be a potential solution, if administered correctly of course.
+<br>
+Below is the same data set displayed in a map so we can spatially locate these groups.
+
+```{r}
+leaflet() %>% 
+  addProviderTiles(provider = providers$CartoDB.Positron) %>% 
+  #renters and didnt change
+  addPolygons(
+    data = epa_changes %>% 
+      filter(tenure_change == "Remained renter-occupied"),
+    fillColor = "lightgreen",
+    color = "black",
+    weight = 0.5,
+    fillOpacity = 1
+  ) %>% 
+    #owners and didnt change
+    #there are none?????
+    addPolygons(
+    data = epa_changes %>%
+      filter(tenure_change == "Remained owner-occupied"),
+    fillColor = "lightpink",
+    color = "black",
+    weight = 0.5,
+    fillOpacity = 1
+  ) %>%
+    #renters and did change
+  addPolygons(
+    data = epa_changes %>% 
+      filter(tenure_change == "Owner to renter-occupied"),
+    fillColor = "green",
+    color = "black",
+    weight = 0.5,
+    fillOpacity = 1
+  ) %>%
+  #owners and did change
+  addPolygons(
+    data = epa_changes %>%
+      filter(tenure_change == "Renter to owner-occupied"),
+    fillColor = "brown",
+    color = "black",
+    weight = 0.5,
+    fillOpacity = 1
+  ) %>%
+  addLegend(
+    data = epa_changes,
+    colors = c("lightgreen","green", "lightpink", "brown"),
+    labels = c("Remained renter-occupied", "Owner to renter-occupied","Remained owner-occupied", "Renter to owner-occupied"),
+    title = "Tenure change in EPA<br>from 2016 to 2019"
+  )
+```
+The large presence of remained renter-occupied and remained owner-occupied is confirmed.
+
+More importantly, you can see that the distribution of colors is surprisingly equal which shows us that the changes and tenure status are mixed across different areas of EPA. This is interesting because it shows us there is no distinction across neighborhood or external factors to this. In terms of the proposed OPA, this strengthenes the hypothesis that price is the main driving factor and therefore, is probably the best point of intervention for this system.
+<br>
+After indentiying this factor, let's see how the value of properties, and thus prices, have been trending in the past years.
+<br>
+Here is a bar chart showing the total net value of East Palo Alto properties over time from 2015/2016 to 2018/2019.
+```{r}
+epa_value <-
+  epa_exemption %>%
+  filter(Exemption <= 7000) %>%
+  mutate(
+    tenure = case_when(
+      Exemption %in% c("5600","7000") ~ "Owner",
+      TRUE ~ "Renter"
+    )
+  ) %>%
+  group_by(`Fiscal Year`, tenure)
+
+
+epa_chart <-
+  epa_value %>% 
+  ggplot() +
+  geom_bar(
+      aes(
+        x = `Fiscal Year`,
+        y = `Net Value`,
+        fill = tenure
+      ),
+      stat = "identity",
+      position = "dodge"
+    ) +
+    scale_fill_manual(values=c("#CC6666", "#9999CC")) +
+    labs(
+      x = "Fiscal Year",
+      y = "Net Value ($)",
+      title = "Total Net Value over time",
+      fill = "Tenure"
+    )
+epa_chart
+```
+We can see there is a general trend in increasing total net value regardless of tenure. This represents the appreciation of real estate in this area. This is a contributing factor which suggests an increase in housing burden. While both are increasing, we can observe the gap continues.
+
+More interestingly, this is a plot of the average net value by owner and tenure in the same time frame.
+```{r}
+plot <-
+  epa_value %>% 
+  select(`Fiscal Year`, tenure, `Net Value`) %>%
+  st_drop_geometry() %>%
+    group_by(`Fiscal Year`, tenure) %>%
+    summarise(
+      avg = mean(`Net Value`, na.rm = T)
+    ) %>%
+  ungroup(`Fiscal Year`, tenure)
+
+
+graph <-
+  plot %>%
+    ggplot(
+      aes(
+        x = `Fiscal Year`,
+        y = avg,
+        color = tenure,
+        group = tenure
+      ) 
+    ) +
+    scale_color_manual(values=c("#CC6666", "#9999CC")) +
+    geom_line() +
+    geom_point() +
+    labs(
+      title = "Average Net Value over time",
+      x = "Fiscal Year",
+      y = "Average Net Value ($)",
+    )
+graph
+```
+Here, there is a very clear increase in the gap between the average net value between owners and renters. By extrapolation, we could predict this gap will continue to increase.
+
+This suggests a disproportionate exponential increase in the value of renter-occupied properties, compared to the linear increase for owner-occupied properties. This is most likely being reflected onto rent prices. A possible cause for this might be a limited supply of rental units with increased demand. Once again, this supports the need for action as this graph suggests the housing burden issue for renting households will only increase. Furthermore, this shows this increase is market based rather than due to an overall increase in property value.
+
+In the real estate market, a very significant metric is value/area. In this case, using Acres, here is a plot of the average net value per square feet over time.
+
+```{r}
+epa_area <-
+  epa_value %>% 
+  select(`Fiscal Year`, tenure, Acres, `Net Value`) %>%
+  st_drop_geometry() %>%
+  group_by(`Fiscal Year`, tenure) %>%
+  summarise(
+      avg_value = mean(`Net Value`, na.rm = T),
+      avg_sqft = mean(Acres, na.rm = T)
+    ) %>%
+  ungroup(`Fiscal Year`, tenure) %>%
+  mutate(
+    avg_sqft = avg_sqft*43560
+  ) %>%
+  mutate(
+    valuepersqft = avg_value/avg_sqft
+  ) %>%
+  select(-"avg_sqft") %>%
+  select(-"avg_value")
+
+
+sqft_graph <-
+  epa_area %>%
+    ggplot(
+      aes(
+        x = `Fiscal Year`,
+        y = valuepersqft,
+        group = tenure,
+        color = tenure
+      ) 
+    ) +
+    scale_color_manual(values=c("#CC6666", "#9999CC")) +
+    geom_line() +
+    labs(
+      title = "Average value per square foot over time",
+      x = "Fiscal Year",
+      y = "Average value per square foot ($)",
+    )
+sqft_graph
+```
+While this graph requires an average value and average sqft, which could lead to distortions, you can observe quite radical changes.
+
+I believe this to be beyond the scope of this project but in another opportunity, I would be interested in knowing what factors drove such a drastic change in the 2016/2017 fiscal year.
+
+Considering the 2017/2018 to 2018/2019 steady and parallel increase, which is not very representative as it is based on two points only, I believe this counters the trend we have seen in the previous graph.
+
+<br>
+<br>
+
+<h3> Concluding Thoughts <h3>
+
+While the results above very clearly demonstrate the housing affordability problem is real and extremely worrying, it is hard to precisely determine the impacts of the proposed solution.
