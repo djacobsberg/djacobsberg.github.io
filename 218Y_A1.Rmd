@@ -561,6 +561,7 @@ epa_chart <-
     )
 epa_chart
 ```
+<br>
 We can see there is a general trend in increasing total net value regardless of tenure. This represents the appreciation of real estate in this area. This is a contributing factor which suggests an increase in housing burden. While both are increasing, we can observe the gap continues.
 
 More interestingly, this is a plot of the average net value by owner and tenure in the same time frame.
@@ -596,6 +597,7 @@ graph <-
     )
 graph
 ```
+<br>
 Here, there is a very clear increase in the gap between the average net value between owners and renters. By extrapolation, we could predict this gap will continue to increase.
 
 This suggests a disproportionate exponential increase in the value of renter-occupied properties, compared to the linear increase for owner-occupied properties. This is most likely being reflected onto rent prices. A possible cause for this might be a limited supply of rental units with increased demand. Once again, this supports the need for action as this graph suggests the housing burden issue for renting households will only increase. Furthermore, this shows this increase is market based rather than due to an overall increase in property value.
@@ -643,6 +645,7 @@ sqft_graph <-
     )
 sqft_graph
 ```
+<br>
 While this graph requires an average value and average sqft, which could lead to distortions, you can observe quite radical changes.
 
 I believe this to be beyond the scope of this project but in another opportunity, I would be interested in knowing what factors drove such a drastic change in the 2016/2017 fiscal year.
