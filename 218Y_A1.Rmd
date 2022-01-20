@@ -27,7 +27,7 @@ Sys.setenv(CENSUS_KEY="c8aa67e4086b4b5ce3a8717f59faa9a28f611dab")
 ```
 
 
-<h5>General views on the proposed Opportunity to Purchase Act (ACT) in East Palo Alto:
+<h5>General views on the proposed Opportunity to Purchase Act (OPA) in East Palo Alto:
 
 1. There is good intent behind the policy and positive motivation can be justified by constantly increasing real estate prices in East Palo Alto and therefore, increasing the burden of living cost for residents.
 2. That said, there is no policy that will ever benefit everyone. It is up to residents, home-owners and renters, and officials to come together to understand which parts of this proposed OPA would be more beneficial than it would be harmful.
