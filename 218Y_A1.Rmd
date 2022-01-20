@@ -635,6 +635,7 @@ sqft_graph <-
     ) +
     scale_color_manual(values=c("#CC6666", "#9999CC")) +
     geom_line() +
+    geom_point() +
     labs(
       title = "Average value per square foot over time",
       x = "Fiscal Year",
@@ -653,4 +654,4 @@ Considering the 2017/2018 to 2018/2019 steady and parallel increase, which is no
 
 <h3> Concluding Thoughts <h3>
 
-While the results above very clearly demonstrate the housing affordability problem is real and extremely worrying, it is hard to precisely determine the impacts of the proposed solution.
+<h5>While the results above very clearly demonstrate the housing affordability problem is real and extremely worrying, it is hard to precisely determine the impacts of the proposed solution.<h5>
