@@ -881,7 +881,7 @@ leaflet() %>%
     label = ~name
   )
 ```
-It is very interesting to see that parks are quite evenly distributed but tend to be in areas further away from the bay. Furthermore, there is a larger concentration arounf Stanford University's campus and in Charleston Meadows/Castry City. Next we will look at the income breakdown of Palo Alto.
+It is very interesting to see that parks are quite evenly distributed but tend to be in areas further away from the bay. Furthermore, there is a larger concentration around Stanford University's campus and in Charleston Meadows/Castry City. Compared to Oakland, the concentration of park is much lower. Next we will look at the income breakdown of Palo Alto.
 <br>
 <br>
 Similar to Oakland, this equity analysis is at the block group level to have the most updated income data (blocks we could only use decennial data) and is based on the assumption that neighborhoods (made up of block groups) most likely have similar income characteristics because of historic patterns of credit lending and redlining. 
@@ -979,9 +979,9 @@ pa_park_income <-
 sum(pa_park_income$estimate)/
   sum(pa_income$estimate)
 ```
-The output is 0.7507 which means there are approximately 75.07% of people are within 10 minutes of a park. This is slightly higher than Oakland which was already incredibly high access. One possible reason may be that because the city is smaller, amentities are more concentrated and so are people, easily allowing a large number of people to be within 10 minutes of a park.
+The output is 0.07507 which means there are approximately 7.51% of people are within 10 minutes of a park. This is significantly lower than Oakland and represents very limited access. One possible reason may be that because the city is smaller and less urban (more like a suburb) which means park might not be as essential due to other sources for green space. As a wealthy city, I expect more Palo Alto residents to also have private backyards, making parks less meaningful and thus, less frequent. This could explain why such a small percentage of the population is within a 10 minute walk from a park.
 
-Next, let's see if there is a difference in income distribution in the population within a 10 min walk of a park compared to the entire population. Given Oakland's results, I also expect there to be a minimal difference here because of the similarity in these two groups.
+Next, let's see if there is a difference in income distribution in the population within a 10 min walk of a park compared to the entire population. Given Oakland's results, I also expect there to be a minimal difference here, despite the lower access.
 
 ```{r}
 rbind(pa_income,pa_park_income) %>% 
