@@ -1,0 +1,1028 @@
+---
+title: "218Y_A2"
+author: "Daphne Jacobsberg with Catherine Beck and Lena Bakalian"
+date: "1/20/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(tigris)
+library(sf)
+library(leaflet)
+library(tidycensus)
+library(censusapi)
+library(mapview)
+library(esri2sf)
+library(plotly)
+library(knitr)
+library(mapboxapi)
+
+acs_vars_2019_5yr <-
+  listCensusMetadata(
+    name = "2019/acs/acs5",
+    type = "variables"
+  )
+```
+
+The objective of this analysis is to create a measure of completeness which indicates the access of different blocks in a city to essential points of interest.
+
+```{r}
+#points of interest
+pois <- readRDS("pois.rds")
+```
+
+```{r}
+pois_summary <- pois %>% 
+  st_drop_geometry() %>% 
+  group_by(fclass) %>% 
+  count() %>% 
+  arrange(desc(n))
+```
+
+<h3>Methodology</h3>
+
+Here are a list of the five selected amenities, each one's attributed amenity value, amenity quantity and amenity decay.
+
+```{r}
+amenity_preference <- data.frame(
+  amenity = c("park",
+     "supermarket",
+     "hospital",
+     "school",
+     "wastewater_plant"),
+  amenity_value = c(
+    0.8, ## having a park increases housing stock around it and is good for mental/physical health 
+    1,  ##people want to go to the closest grocery store, ideally the healthiest too
+    0.5, ##people go to clinics for regular needs and in an emergency it is good to have a closer hospital to you, but emergencies are         ~rare~
+    0.6, ##ideally a  school is next to you, but we know that people are usually flexible and will go further if they can for a   better school. This score does NOT take into account the quality of the school which is why we ranked it low. Having a bad school next to you isn't going to be lucrative. 
+    0.05 ##it is not nice to live near a wastewater plant and thus it will be rated very low. Because we are not doing an overall study of amenity vs disamenity we are keeping wastewater plant in the same bucket as our other amenities because we recognize the importance of wastewater plants to the general community, but having a wastewater plant adjacent to a residential community is what is driving the score so low.
+  ),
+  amenity_quantity = c(
+    2, ##eventually you will probably go back to the same park near you and not explore all of the parks in the neighborhood. There's community involved in parks so you don't really need that many. 
+    4, ##this is trying to account for the variety of supermarket types (think TJs vs Whole Foods)
+    1, ##the marginal benefit of a second hospital near you is very low so long as there is one nearby. You will always go to the closest one during an emergency. If we were to do clinics, perhaps the number would be higher. 
+    6, ##FFor each school there are three designations: primary school, middle school, and upper school. Because of this, we 3x the quantity of 2 which we think has a reasonable marginal benefit considering the size of the city and quality differential in schools.  
+    1 ##for the same reasons as above, it is important to have a municipal wastewater plant, but it is also not nice to have near homes. You also wouldn't need more than 1. There would be no marginal benefit to having another 
+    )
+  )%>% mutate( ##keep the decay the same as in class
+   amenity_decay = -log(0.5)/amenity_quantity
+)
+
+kable(amenity_preference)
+```
+A bit about why we chose each of these amenities:<br>
+- Parks are from the entertainment category and have proved to improve the mental and physical health of those around it. By providing green space, people are able to enjoy being outside, exercise and create a social environment which increases happiness levels. Furthermore, having an easy access park increases housing stock around it. Due to the exclusively positive impacts of this amenity, we have given it high value (0.8) however we believe parks are not unique and having too many options will still result in going to the closest one, especially when people have developed a sense of community. As such, we set the amenity quantity at 2.
+<br>
+- Supermarkets provide people with food which is essential but more importantly, healthy foods. Different from convenience stores, they are more accessible and have healthier options. People tend to value having a supermarket close to them as that is a place you have to go to often. This amenity is essential to everyone regardless of race, gender or age and so we decided to attribute maximum value to it. Furthermore, there are many different types of supermarkets and so, having variety adds value however, we believe there is a limit to the number of stores people are willing to go which we believe if close to 4.
+<br>
+- Hospitals are also essential and in the health category. Having a hospital close by is important, especially in emergencies as we know time can save a life. That said, emergencies are rare and on a day-to-day basis, people will more frequently go to clinics. After balancing those factors, we decided to attribute an average value of 0.5 and an amenity quantity of 1 as in an emergency, always go directly and as fast as you can to the closest one to you. In other words, the marginal benefit of having a second hospital is minimal.
+<br>
+- Schools are a part of families' daily routine and so, being close by adds immense value to both kids and parents. When regarding education, we know people are often willing to go further for better quality if need be. As this amenity does not take quality into consideration, we have assessed its value at 0.6 to account for the very low added benefit a nearby bad school would add. To determine the quantity, we considered that there are three types of schools (primary, middle and upper school) and multiplied that by 2 which we think has a reasonable marginal benefit considering the high variability in quality and other characteristics of schools which lead to individual preferences.
+<br>
+- Wastewater plants are essential towards the functioning of a city however, it is not desirable to be near one. Thus, we have determined its value to be 0.05. That said, there is no marginal benefit to having a second one meaning the amenity quantity is capped at 1.
+
+As for the amenity decay for each of these amenities, we used a logarithmic expression and chose to keep the 0.5 as an intermediate rate.
+
+<br>
+Next, are the explored modes of transportation (walking, cycling and driving), each of their mode values and mode reasonables.
+```{r}
+##Mode Preference type 
+mode_preference <- data.frame(
+  mode = c(
+    "walking",
+    "cycling",
+    "driving"
+  ),
+  mode_value = c(
+    1, ##it is ideal to have all amenities within walking distance.
+    0.8, ##it is nice to cover more ground while being environmentally friendly. Biking is the preferred method for many people going further than 15 minutes of walking distance. It is a little lower than walking because it can make you a little sweaty and there is a little more cost to owning a bike——fixing your bike, buying a bike, a lack of bike lanes can be dangerous, and parking a bike is difficult.   
+    0.3 ##being in a dense city, driving will mean getting into traffic jams and increase congestion across the city which may cause more pollution in the city and cause public health issues. Also, the cost of owning a car, maintaining a car, paying for gas, and finding a place to park all result in a low mode preference value 
+  ),
+  mode_reasonable = c(
+    15,
+    10,
+    20
+  )
+) %>% 
+  mutate(
+    mode_decay = -log(0.5)/mode_reasonable
+  )
+
+kable(mode_preference)
+```
+Walking is the most preferred mode and it is ideal to have all amenities within walking distance so is valued at 1.0. This is because it is easily accessible as it does not require any materials, is environmentally friendly and is healthy. That said, it can be tiring especially after 15 minutes which is the mode reasonable value.
+<br>
+Cycling has many of the benefits of walking but requires a bike and its maintenance so is valued at 0.8. Furthermore it is more demanding and so has a lower mode reasonable value of 10.
+<br>
+Driving allows going further but requires dealing with traffic, pollutes and does not provide exercise. This has made it the least preferred mode with 0.3 value. Due to these same reasons mentioned above, it is reasonable to spend more time in this mode and so the chosen mode reasonable was 20.
+
+As for the decay, mode decay follows the exact same equation used for amenity decay.
+<br>
+
+```{r}
+complete_baseline <- data.frame(
+  amenity = amenity_preference$amenity %>% 
+    rep(amenity_preference$amenity_quantity)
+) %>% 
+  left_join(
+    amenity_preference,
+    by = "amenity"
+  ) %>% 
+  group_by(amenity) %>% 
+  mutate(
+    amenity_rank = row_number() - 1
+  ) %>% 
+  ungroup() %>% 
+  mutate(
+    score = amenity_value * exp(-amenity_rank * amenity_decay) * 0.5
+  )
+
+#sum(complete_baseline$score)
+```
+
+<br>
+As a consequence of these choices, the baseline completeness score was 3.90401. This represents the ideal score based on the parameters set above.
+
+<h3>Oakland</h3>
+```{r}
+am_boundary <- counties("CA", progress_bar = F) %>% 
+  filter(NAME == "Alameda") %>% 
+  st_transform(st_crs(pois))
+
+am_pois <- pois %>% 
+  .[am_boundary,] %>% 
+  rename(amenity = fclass)
+
+```
+
+Here is a map of all Points of Interest in Alameda County:
+<br>
+```{r}
+mapview(am_pois, zcol = "amenity")
+```
+
+We can see this is a well developed area with an abundance of resources. It is hard to draw further conclusions from this map due to the large amount of information for a vast area.
+
+```{r}
+# pois_filter <- am_pois %>% 
+#   filter(amenity %in% c(
+#     "park",
+#     "supermarket",
+#     "hospital",
+#     "school",
+#     "wastewater_plant"
+#   ))
+
+#saveRDS(pois_filter, "pois_filter.rds")
+pois_filter <- readRDS("pois_filter.rds")
+```
+
+More specifically, here is a map showing the distribution of the selected amenities (parks, supermarkets, schools, hospitals and wastewater plants) throughout Alameda County.
+```{r}
+mapview(pois_filter, zcol = "amenity")
+```
+
+We can see the distribution seems fairly equal with centers along the Bay, from Berkeley to Fremont and then Dublin and Livermore.
+
+```{r}
+#blocks
+# am_cbgs <- blocks("CA","Alameda")
+```
+
+Before moving on, it is also interesting to see the Oakland's Census Blocks:
+```{r}
+# okd_boundary <- places("CA") %>% 
+#   filter(NAME == "Oakland")
+
+# okd_cbgs <- am_cbgs %>% 
+#   st_centroid() %>% 
+#   .[okd_boundary, ] %>% 
+#   st_drop_geometry() %>% 
+#   left_join(am_cbgs %>% select(GEOID10)) %>% 
+#   st_as_sf()
+
+#saveRDS(okd_cbgs, "okd_cbgs.rds")
+okd_cbgs <- readRDS("okd_cbgs.rds")
+
+#just to check but not an interesting result
+mapview(okd_cbgs)
+```
+
+<br>
+The next major step of this analysis was to generate isochrones. These are essentially filled radii showing how far one could go in a given time period with a given mode of transportation.
+
+In this analysis we have covered 7 combinations: walking in 5, 10 and 15 minutes, cycling in 5, 10 and 15 minutes and driving in 5 minutes. We have purposefully excluded driving in 10 and 15 minutes as that reduces our area of interest and focuses our study strictly to Oakland.
+
+After compiling those and intersecting PoI data with isochrones and our outlined amenity and mode preferences, here is a map showing the completeness score of for each CBG in Oakland.
+
+```{r}
+#creating isochrones
+#after chat with derek
+
+# isochrones_driving_10b <- 1:10 %>% 
+#   map_dfr(function(x){
+#     
+#     print(x)
+#     
+#     temp <- mb_isochrone(
+#       okd_cbgs[x,],
+#       profile = "driving",
+#       time = c(10)
+#     ) %>% 
+#       mutate(mode = "driving")
+#     
+#     if(x%%300==0) Sys.sleep(30)
+#     
+#     return(temp)
+#     
+#   })
+
+#saveRDS(isochrones_driving_10, "isochrones_driving_10.rds")
+
+```
+
+```{r}
+#just compiling
+
+# isochrones_driving_5 <- readRDS("isochrones_driving_5.rds")
+# isochrones_driving_10 <- readRDS("isochrones_driving_10.rds")
+# isochrones_driving_15 <- readRDS("oak_isochrones_driving15.rds")
+# 
+# isochrones_driving <-
+#   isochrones_driving_5 %>%
+#   rbind(isochrones_driving_10) %>%
+#   rbind(isochrones_driving_15)
+# 
+# isochrones_cycling_5 <- readRDS("isochrones_cycling_5.rds")
+# isochrones_cycling_10 <- readRDS("isochrones_cycling_10.rds")
+# isochrones_cycling_15 <- readRDS("isochrones_cycling_15.rds")
+# 
+# isochrones_cycling <-
+#   isochrones_cycling_5 %>%
+#   rbind(isochrones_cycling_10) %>%
+#   rbind(isochrones_cycling_15)
+# 
+# isochrones_walking_5 <- readRDS("isochrones_5walking.rds")
+# isochrones_walking_10 <- readRDS("isochrones_10walking.rds")
+# isochrones_walking_15 <- readRDS("isochrones_15walking.rds")
+# 
+# isochrones_walking <-
+#   isochrones_walking_5 %>%
+#   rbind(isochrones_walking_10) %>%
+#   rbind(isochrones_walking_15)
+# 
+# isochrones <-
+#   isochrones_cycling %>%
+#   rbind(isochrones_driving_5) %>%
+#   rbind(isochrones_walking)
+# 
+# isochrones_master <-
+#   isochrones %>%
+#   mutate(id = rep(1:6314, 7))
+  
+
+
+#saveRDS(isochrones_master, "isochrones_master.rds")
+isochrones_master <- readRDS("isochrones_master.rds")
+```
+
+```{r}
+# access_raw <- isochrones_master %>% 
+#   st_make_valid() %>%
+#   st_join(pois_filter) %>% 
+#   filter(!is.na(osm_id)) %>%
+#   st_drop_geometry()
+# 
+# saveRDS(access_raw, "access_raw.rds")
+access_raw <- readRDS("access_raw.rds")
+``` 
+
+```{r}
+complete_temp <- access_raw %>%
+  left_join(
+    amenity_preference, 
+    by = "amenity"
+  ) %>%
+  left_join(
+    mode_preference, 
+    by = "mode"
+  ) %>%
+  ##sort the isochrones 
+  group_by(id, mode, amenity) %>%
+  arrange(time) %>%
+  mutate(
+    amenity_rank = row_number() - 1 
+  ) %>%
+  ungroup()
+
+
+
+complete_modes <- complete_temp %>%
+  mutate(
+    score = amenity_value * exp(-amenity_rank * amenity_decay) * exp(-time * mode_decay)
+  ) %>%
+  group_by(id, mode) %>%
+  arrange(desc(score)) %>% ##arrange by descending score 
+  filter(!duplicated(osm_id)) %>%
+  ##normalize actual completeness score
+  summarize(
+    score = sum(score, na.rm=T)/sum(complete_baseline$score) ##first sum is pointing at data frame in this pipeline, second sum is from earlier data frame 
+  )
+
+
+complete_total <- complete_temp %>%
+  mutate(
+    score = amenity_value * exp(-amenity_rank * amenity_decay) * mode_value * exp(-time * mode_decay)
+  ) %>%
+  group_by(id) %>%
+  arrange(desc(score)) %>%
+  filter(!duplicated(osm_id)) %>%
+   summarize(
+     score = sum(score, na.rm = T)/sum(complete_baseline$score)
+   ) %>%
+  mutate(mode = "total")
+
+complete <- rbind(
+  complete_modes,
+  complete_total
+)
+```
+
+```{r}
+#oakland cbgs
+# okd_cbgs_bound <- am_cbgs %>%
+#     st_centroid() %>%
+#     .[okd_boundary, ]  %>%
+#     st_drop_geometry() %>% 
+#     left_join(am_cbgs %>% select(GEOID10)) %>% 
+#     st_as_sf()
+ 
+# saveRDS(okd_cbgs_bound, "okd_cbgs_bound.rds")
+okd_cbgs_bound <- readRDS("okd_cbgs_bound.rds")
+```
+
+
+```{r}
+complete_map <- complete %>%
+  pivot_wider(
+    names_from = "mode",
+    values_from = "score"
+  ) %>%
+  cbind(okd_cbgs_bound %>% select (GEOID10)) %>%
+  st_as_sf()
+
+mapview(complete_map, zcol = "total") 
+```
+
+Overall, there is a ripple effect in which higher completeness scores (lighter colours) are located in the center (excluding the city of Piedmont) which represent easy access to amenities and lower completeness scores (darker colours) are in the fringes of the city, representing the worst access to amenities. Furthermore, when comparing East and West, it can be seen that Western Oakland which is far from the Bay has better scores than Eastern Oakland. This is already surprising as cities are often more developed along their coastlines (althought this is not a coast).
+
+This circular pattern makes sense because isochrones are concentric circles so the areas with best access would be downtown/central Oakland. Perhaps because we limited driving to only 5 minutes (as a reflection of the high friction and annoyance of getting into a car) also could have led to the fringes having worse access. Lakeside park (as seen in our amenity map above) is one of the bigger parks in the city and is located in the center. However, the majority of large parks are on the fringes and a few smaller parklets within the city center. Highland Hospital, Alta Bates Summit Medical Center, and Oakland Medical Center, and the Children's Hospital are all within the North-Central part of Oakland which also explains the more yellow tones in the region.
+<br>
+Hospitals, supermarkets, and schools tend to be clustered in the densest parts of cities so again it makes sense that there is more access in central Oakland. Wastewater facilities and parks are usually on the less dense parts of cities as they require more space and in Oakland, those happen to be the fringes of the city. 
+
+
+<h4>Oakland Income Equity Analysis </h4>
+
+
+Question—Even in a big city like Oakland, would income level determine access to certain amenities? Is there a relationship with income and access in a big urban center? By looking at access to parks, which are seen as a luxury, we can see the correlation bewteen income and park access. 
+
+
+```{r}
+##Narrow down isochrones to just those walking and 10 minutes
+
+# access_raw_geom <- isochrones_walking_10 %>%
+#   st_make_valid() %>%
+#   st_join(pois_filter) %>%
+#   filter(!is.na(osm_id))
+# 
+# saveRDS(access_raw_geom, "access_raw_geom.rds")
+access_raw_geom <- readRDS("access_raw_geom.rds")
+
+##narrow down access raw to just look at parks 
+park_access <- access_raw_geom %>%
+  filter(amenity == "park") %>%
+  filter(mode == "walking") %>%
+  filter(time == "10") %>%
+  group_by(osm_id) %>%
+  filter(!duplicated(name))
+
+#create isochrones based around the parks
+# walk_10min <- mb_isochrone(
+#   park_access,
+#   profile = "walking",
+#   time = 10
+# )
+
+# saveRDS(walk_10min, "walk_10min.rds")
+walk_10min <- readRDS("walk_10min.rds")
+
+## get ready to map isochrones around parks by adding geometry 
+okd_park_walk_10min <-
+  park_access %>% 
+  st_drop_geometry() %>% 
+  cbind(walk_10min$geometry) %>% 
+  st_as_sf()
+```
+
+Below is a Map of Isochrones showing a 10 min walking distance radius from every Park in Oakland
+
+```{r}
+leaflet() %>% 
+  addMapboxTiles(
+    style_id = "streets-v11",
+    username = "mapbox"
+  ) %>%
+  addPolygons(
+    data = okd_park_walk_10min,
+    label = ~name
+  )
+```
+It is very interesting to see that there is a large concentration of parks in the North East near the Bay compared to the South-East and South-West inland. Next we will look at the income breakdown of Oakland. 
+ <br>
+ <br>
+This equity analysis is at the block group level to have the most updated income data (blocks we could only use decennial data) and is based on the assumption that neighborhoods (made up of block groups) most likely have similar income characteristics because of historic patterns of credit lending and redlining.
+
+```{r}
+##Insert census data
+al_bgs <- 
+  block_groups("CA","001", cb = T, progress_bar = F) %>% 
+  st_transform(26910) %>% 
+  mutate(original_area = st_area(.))
+
+oak_bg_isochrone_intersect <-
+  al_bgs %>% 
+  st_intersection(
+    okd_park_walk_10min %>% 
+      st_union() %>% 
+      st_transform(26910)
+  ) %>% 
+  mutate(
+    leftover_area = st_area(.),
+    perc_area = leftover_area / original_area
+  )%>% 
+  filter(as.numeric(TRACTCE) %in% 400100:410400) ##filter to oakland
+
+
+oak_bg_income <-
+  getCensus(
+    name = "acs/acs5",
+    vintage = 2019,
+    region = "block group:*", 
+    regionin = "state:06+county:001",
+    vars = "group(B19001)"
+  )%>% 
+  filter(as.numeric(tract) %in% 400100:410400) %>% ##filter just for oakland within the alameda set
+  mutate(cbg = paste0(state,county,tract,block_group)) %>% 
+  select(!c(GEO_ID,state,county,tract,block_group,NAME) & !ends_with(c("EA","MA","M"))) %>%
+  pivot_longer(
+    ends_with("E"),
+    names_to = "variable",
+    values_to = "estimate"
+  ) %>%
+  left_join(
+    acs_vars_2019_5yr %>% 
+      select(name, label), 
+    by = c("variable" = "name")
+  ) %>% 
+  select(-variable) %>% 
+  separate(
+    label,
+    into = c(NA,NA,"income"),
+    sep = "!!"
+  ) %>% 
+  filter(!is.na(income)) %>% 
+  mutate(
+    income = case_when(
+      income %in% c("Less than $10,000","$10,000 to $14,999","$15,000 to $19,999","$20,000 to $24,999") ~ "Less than $25,000",
+      income %in% c("$25,000 to $29,999","$30,000 to $34,999","$35,000 to $39,999","$40,000 to $44,999","$45,000 to $49,999") ~ "$25,000 to $49,999",
+      income %in% c("$50,000 to $59,999","$60,000 to $74,999") ~ "$50,000 to $74,999",
+      TRUE ~ income
+    )
+  )
+
+oak_income <-
+  oak_bg_income %>% 
+  mutate(income = factor(income, levels = unique(oak_bg_income$income))) %>% 
+  group_by(income) %>% 
+  summarize(estimate = sum(estimate)) %>% 
+  mutate(
+    perc = estimate/sum(estimate),
+    group = "Full Population"
+  )
+  
+oak_park_income <-
+  oak_bg_income %>% 
+  mutate(income = factor(income, levels = unique(oak_bg_income$income))) %>% 
+  left_join(
+    oak_bg_isochrone_intersect %>% 
+      select(cbg = GEOID, perc_area) %>% 
+      st_drop_geometry()
+  ) %>% 
+  filter(!is.na(perc_area)) %>% 
+  mutate(
+    estimate = estimate * perc_area
+  ) %>% 
+  group_by(income) %>% 
+  summarize(estimate = sum(estimate)) %>% 
+  mutate(
+    perc = estimate/sum(estimate),
+    group = "Population within 10 min. walk of a park"
+  )
+```
+
+```{r}
+sum(oak_park_income$estimate)/
+  sum(oak_income$estimate)
+```
+This 0.7318 output means approximately 73.18% of people are within 10 minutes of a park. This is pretty amazing access and a surprising finding.
+
+Next, let's take a look at the income distribution across the general population and the population within a 10 min. walk of a park.
+```{r}
+rbind(oak_income,oak_park_income) %>% 
+  ggplot(
+    aes(
+      x = "", 
+      y = perc, 
+      fill = reorder(income,desc(income))
+    )
+  ) + 
+  geom_bar(
+    stat = "identity", 
+    position = position_fill()
+  ) +
+  geom_text(
+    aes(label = paste0(round(perc*100),"%")), 
+    position = position_fill(vjust = 0.5)
+  ) +
+  coord_polar(theta = "y") +
+  facet_wrap(~ group)  +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    legend.position = 'bottom'
+  ) + 
+  guides(
+    fill = guide_legend(nrow=3, byrow=TRUE)
+  ) +
+  labs(
+    fill = "Household\nIncome"
+  )
+```
+This result is incredibly fascinating. It is pretty reflective of the income breakdowns of the full population. This means access is performing on par with population income statistics. I have never seen anything like this however, it is highly credible as a significant percentage (73.2%) of the general population is represented in the second group. Thus, not that many people were excluded which explains the small difference.
+
+The largest percentage of the population wihtin a 10 minute walk of a park is the population with the lowest income. Our hypothesis that it is difficult to afford to live near a park is clearly incorrect. Perhaps we would have had a different result if we had lowered our isochrone to just 5 minutes, or even less (meaning they live on the border of the park). Perhaps some reasons this may be the result is that because Oakland is less dense then other similar mid-sized cities, there is naturally occurring open green space more abundantly available. Overall, this is a pretty equitable breakdown of park access. 
+<br>
+<br>
+
+<h3>Palo Alto</h3>
+
+<br>
+In order to draw more accurate conclusions, it is always interesting to make comparisons. Here is the same analysis but for another location - Palo Alto in Santa Clara County, just across the bridge from Oakland, Alameda. To keep this a fair comparison, I have kept the same selected points of interesting, amenity preferences, modes of transport and mode preferences. This results in the same baseline completeness score of 3.90401.
+
+```{r}
+sc_boundary <- counties("CA", progress_bar = F) %>% 
+  filter(NAME == "Santa Clara") %>% 
+  st_transform(st_crs(pois))
+
+# will take longer but handles larger POIs better
+sc_pois <- pois %>% 
+  .[sc_boundary,] %>% 
+  rename(amenity = fclass)
+```
+
+Once again, here is a map for all points of interest all throughout the selected county.
+```{r}
+mapview(sc_pois, zcol = "amenity")
+```
+
+```{r}
+# sc_pois_filter <- sc_pois %>%
+#   filter(amenity %in% c(
+#     "park",
+#     "supermarket",
+#     "hospital",
+#     "school",
+#     "wastewater_plant"
+#   ))
+
+#saveRDS(sc_pois_filter, "sc_pois_filter.rds")
+sc_pois_filter <- readRDS("sc_pois_filter.rds")
+```
+We can see this is an area with a concentration of resources, compared to Oakland, clearly indicating an urban setting. To draw more insightful conclusions, let's zoom in a bit.
+<br>
+Next is the same map but filtered for our selected points of interest. 
+```{r}
+mapview(sc_pois_filter, zcol = "amenity")
+```
+We can see the distribution seems fairly equal with centers along the Bay, from Palo Alto to San Jose and then Morgan Hill and Gilroy further South.
+
+```{r}
+#sc_cbgs <- blocks("CA","Santa Clara")
+
+#saveRDS(sc_cbgs, "sc_cbgs.rds")
+sc_cbgs <- readRDS("sc_cbgs.rds")
+```
+
+As seen with Oakland, here is a map of the Census Blocks for Palo Alto, before layering on any analysis.
+```{r}
+pa_boundary <- places("CA", progress_bar = F) %>% 
+  filter(NAME == "Palo Alto")
+
+# pa_cbgs <- sc_cbgs %>% 
+#   st_centroid() %>% 
+#   .[pa_boundary, ] %>% 
+#   st_drop_geometry() %>% 
+#   left_join(sc_cbgs %>% select(GEOID10)) %>% 
+#   st_as_sf()
+
+# saveRDS(pa_cbgs, "pa_cbgs.rds")
+pa_cbgs <- readRDS("pa_cbgs.rds")
+
+#just to test
+mapview(pa_cbgs)
+```
+
+
+Moving onto isochrones, I have generated the same 7 isochrones for each block in Palo Alto: walking (5/10/15), cycling (5/10/15) and driving (5) for the sake of a fair comparison, and applied the same processes to the data.
+
+```{r}
+#moving onto isochrones
+#after chat with derek
+
+# pa_isochrones_cycling <- 1:nrow(pa_cbgs) %>% 
+#   map_dfr(function(x){
+#     
+#     print(x)
+#     
+#     temp <- mb_isochrone(
+#       pa_cbgs[x,],
+#       profile = "cycling",
+#       time = c(5,10,15)
+#     ) %>% 
+#       mutate(mode = "cycling")
+#     
+#     if(x%%300==0) Sys.sleep(5)
+#     
+#     return(temp)
+#     
+#   })
+# 
+# 
+# pa_isochrones_driving_15 <- c("walking") %>% 
+#   map_dfr(function(x){
+#     
+#     mb_isochrone(
+#       pa_cbgs,
+#       profile = x,
+#       time = c(15)
+#     ) %>% 
+#       mutate(mode = x)
+#     
+#   })
+
+#saveRDS(pa_isochrones_walking_15, "pa_isochrones_walking_15.rds")
+```
+
+
+```{r}
+#just compiling
+# pa_isochrones_driving_5 <- readRDS("pa_isochrones_driving_5.rds")
+# # pa_isochrones_driving_10 <- readRDS("pa_isochrones_driving_10.rds")
+# # pa_isochrones_driving_15 <- readRDS("pa_isochrones_driving_15.rds")
+# 
+# pa_isochrones_driving_5 <-
+#   pa_isochrones_driving_5 %>%
+#   mutate(id = rep(1:1201))
+# # 
+# # pa_isochrones_driving <-
+# #   pa_isochrones_driving_5 %>%
+# #   rbind(pa_isochrones_driving_10) %>%
+# #   rbind(pa_isochrones_driving_15)
+# 
+# # pa_isochrones_cycling_5 <- readRDS("pa_isochrones_cycling_5.rds")
+# # pa_isochrones_cycling_10 <- readRDS("pa_isochrones_cycling_10.rds")
+# # pa_isochrones_cycling_15 <- readRDS("pa_isochrones_cycling_15.rds")
+# 
+# pa_isochrones_cycling <- readRDS("pa_isochrones_cycling.rds")
+# 
+# pa_isochrones_cycling <-
+#   pa_isochrones_cycling %>%
+#   mutate(id = rep(1:1201,3))
+# 
+# pa_isochrones_walking_5 <- readRDS("pa_isochrones_5walking.rds")
+# pa_isochrones_walking_10 <- readRDS("pa_isochrones_10walking.rds")
+# pa_isochrones_walking_15 <- readRDS("pa_isochrones_15walking.rds")
+# 
+# pa_isochrones_walking <-
+#   pa_isochrones_walking_5 %>%
+#   rbind(pa_isochrones_walking_10) %>%
+#   rbind(pa_isochrones_walking_15)
+# 
+# pa_isochrones_master <-
+#   pa_isochrones_cycling %>%
+#   rbind(pa_isochrones_driving_5) %>%
+#   rbind(pa_isochrones_walking)
+# 
+# 
+# saveRDS(pa_isochrones_master, "pa_isochrones_master.rds")
+pa_isochrones_master <- readRDS("pa_isochrones_master.rds")
+```
+
+```{r}
+# pa_access_raw <- pa_isochrones_master %>%
+#   st_make_valid() %>%
+#   st_join(sc_pois_filter) %>%
+#   filter(!is.na(osm_id)) %>%
+#   st_drop_geometry()
+# 
+# saveRDS(pa_access_raw, "pa_access_raw.rds")
+pa_access_raw <- readRDS("pa_access_raw.rds")
+``` 
+
+
+```{r}
+pa_complete_temp <- pa_access_raw %>% 
+  left_join(
+    amenity_preference,
+    by = "amenity"
+  ) %>% 
+  left_join(
+    mode_preference,
+    by = "mode"
+  ) %>% 
+  group_by(id,mode,amenity) %>% 
+  arrange(time) %>% 
+  mutate(
+    amenity_rank = row_number() - 1
+  ) %>% 
+  ungroup()
+
+
+
+pa_complete_modes <- pa_complete_temp %>% 
+  mutate(
+    score = amenity_value * exp(-amenity_rank * amenity_decay) * exp(-time * mode_decay)
+  ) %>% 
+  group_by(id, mode) %>% 
+  arrange(desc(score)) %>% 
+  filter(!duplicated(osm_id)) %>%
+  summarize(
+    score = sum(score, na.rm=T)
+  )
+
+#complete_baseline stays the same because only variable on our selections and preferences
+#so does the complete baseline score of 3.904
+
+
+pa_complete_total <- pa_complete_temp %>% 
+  mutate(
+    score = amenity_value * exp(-amenity_rank * amenity_decay) * mode_value * exp(-time * mode_decay)
+  ) %>% 
+  group_by(id) %>% 
+  arrange(desc(score)) %>% 
+  filter(!duplicated(osm_id)) %>% 
+  summarize(
+    score = sum(score, na.rm = T)/sum(complete_baseline$score)
+  ) %>% 
+  mutate(mode = "total")
+
+pa_complete <- rbind(
+  pa_complete_modes,
+  pa_complete_total
+)
+```
+
+```{r}
+
+# pa_cbgs_bound <- sc_cbgs %>%
+#     st_centroid() %>%
+#     .[pa_boundary, ]  %>%
+#     st_drop_geometry() %>% 
+#     left_join(sc_cbgs %>% select(GEOID10)) %>% 
+#     st_as_sf()
+ 
+#saveRDS(pa_cbgs_bound, "pa_cbgs_bound.rds")
+pa_cbgs_bound <- readRDS("pa_cbgs_bound.rds")
+```
+
+Finally, here is the complete Palo Alto map with the finalized amenity score for each block. It is clear that anything above Bayshore Fwy and below Juniper Serra Fwy (the two extensions) are the areas with the lowest scores. Within central Palo Alto we can notice a similar pattern to the one in Oakland. The majority of Yellow areas as concentrated in the center, with the same previously described ripple effects with lower scores (not as low as the extremities) located in the fringes of the city. We can also see that to the Left/North of Oregon Expy, the colours are lighter compared to the West/South, indicating better access to the selected amenities.
+
+```{r}
+pa_complete_map <- pa_complete %>%
+  pivot_wider(
+    names_from = "mode",
+    values_from = "score"
+  ) %>%
+  cbind(pa_cbgs_bound %>% select (GEOID10)) %>%
+  st_as_sf()
+
+mapview(pa_complete_map, zcol = "total") 
+```
+
+
+<h4> Palo Alto Income Equity Analysis </h4>
+<br>
+Question—In a city known for being wealthy and high-end, will income level determine access to certain amenities or will Oakland's pattern be followed? Palo Alto is a smaller city than Oakland, will that have an impact by concentrating amenities and thus making them more shared and accessible?
+
+
+```{r}
+##Narrow down isochrones to just those walking and 10 minutes
+
+# pa_access_raw_geom <- pa_isochrones_walking_10 %>%
+#   st_make_valid() %>%
+#   st_join(sc_pois_filter) %>%
+#   filter(!is.na(osm_id))
+# 
+# saveRDS(pa_access_raw_geom, "pa_access_raw_geom.rds")
+pa_access_raw_geom <- readRDS("pa_access_raw_geom.rds")
+
+##narrow down access raw to just look at parks 
+pa_park_access <- pa_access_raw_geom %>%
+  filter(amenity == "park") %>%
+  filter(mode == "walking") %>%
+  filter(time == "10") %>%
+  group_by(osm_id) %>%
+  filter(!duplicated(name))
+
+#create isochrones based around the parks
+# pa_walk_10min <- mb_isochrone(
+#   pa_park_access,
+#   profile = "walking",
+#   time = 10
+# )
+# 
+# saveRDS(pa_walk_10min, "pa_walk_10min.rds")
+pa_walk_10min <- readRDS("pa_walk_10min.rds")
+
+## get ready to map isochrones around parks by adding geometry 
+pa_park_walk_10min <-
+  pa_park_access %>% 
+  st_drop_geometry() %>% 
+  cbind(pa_walk_10min$geometry) %>% 
+  st_as_sf()
+```
+To begin, this is the map of isochrones showing a 10 min walking distance from each Park in Palo Alto
+```{r}
+leaflet() %>% 
+  addMapboxTiles(
+    style_id = "streets-v11",
+    username = "mapbox"
+  ) %>%
+  addPolygons(
+    data = pa_park_walk_10min,
+    label = ~name
+  )
+```
+It is very interesting to see that parks are quite evenly distributed but tend to be in areas further away from the bay. Furthermore, there is a larger concentration arounf Stanford University's campus and in Charleston Meadows/Castry City. Next we will look at the income breakdown of Palo Alto.
+<br>
+<br>
+Similar to Oakland, this equity analysis is at the block group level to have the most updated income data (blocks we could only use decennial data) and is based on the assumption that neighborhoods (made up of block groups) most likely have similar income characteristics because of historic patterns of credit lending and redlining. 
+```{r}
+##Insert census data
+sc_bgs <- 
+  block_groups("CA","085", cb = T, progress_bar = F) %>% 
+  st_transform(26910) %>% 
+  mutate(original_area = st_area(.))
+
+pa_bg_isochrone_intersect <-
+  sc_bgs %>% 
+  st_intersection(
+    pa_park_walk_10min %>% 
+      st_transform(26910) %>%
+      st_make_valid() %>%
+      st_union()
+  ) %>% 
+  mutate(
+    leftover_area = st_area(.),
+    perc_area = leftover_area / original_area
+  ) %>% 
+  filter(as.numeric(TRACTCE) %in% 504600:511700) ##filter to palo alto
+
+
+pa_bg_income <-
+  getCensus(
+    name = "acs/acs5",
+    vintage = 2019,
+    region = "block group:*", 
+    regionin = "state:06+county:085",
+    vars = "group(B19001)"
+  )%>% 
+  filter(as.numeric(tract) %in% 504600:511700) %>% ##filter for PA within SC
+  mutate(cbg = paste0(state,county,tract,block_group)) %>% 
+  select(!c(GEO_ID,state,county,tract,block_group,NAME) & !ends_with(c("EA","MA","M"))) %>%
+  pivot_longer(
+    ends_with("E"),
+    names_to = "variable",
+    values_to = "estimate"
+  ) %>%
+  left_join(
+    acs_vars_2019_5yr %>% 
+      select(name, label), 
+    by = c("variable" = "name")
+  ) %>% 
+  select(-variable) %>% 
+  separate(
+    label,
+    into = c(NA,NA,"income"),
+    sep = "!!"
+  ) %>% 
+  filter(!is.na(income)) %>% 
+  mutate(
+    income = case_when(
+      income %in% c("Less than $10,000","$10,000 to $14,999","$15,000 to $19,999","$20,000 to $24,999") ~ "Less than $25,000",
+      income %in% c("$25,000 to $29,999","$30,000 to $34,999","$35,000 to $39,999","$40,000 to $44,999","$45,000 to $49,999") ~ "$25,000 to $49,999",
+      income %in% c("$50,000 to $59,999","$60,000 to $74,999") ~ "$50,000 to $74,999",
+      TRUE ~ income
+    )
+  )
+
+pa_income <-
+  pa_bg_income %>% 
+  mutate(income = factor(income, levels = unique(oak_bg_income$income))) %>% 
+  group_by(income) %>% 
+  summarize(estimate = sum(estimate)) %>% 
+  mutate(
+    perc = estimate/sum(estimate),
+    group = "Full Population"
+  )
+  
+pa_park_income <-
+  pa_bg_income %>% 
+  mutate(income = factor(income, levels = unique(oak_bg_income$income))) %>% 
+  left_join(
+    pa_bg_isochrone_intersect %>% 
+      select(cbg = GEOID, perc_area) %>% 
+      st_drop_geometry()
+  ) %>% 
+  filter(!is.na(perc_area)) %>% 
+  mutate(
+    estimate = estimate * perc_area
+  ) %>% 
+  group_by(income) %>% 
+  summarize(estimate = sum(estimate)) %>% 
+  mutate(
+    perc = estimate/sum(estimate),
+    group = "Population within 10 min. walk of a park"
+  )
+```
+<br>
+<br>
+```{r}
+sum(pa_park_income$estimate)/
+  sum(pa_income$estimate)
+```
+The output is 0.7507 which means there are approximately 75.07% of people are within 10 minutes of a park. This is slightly higher than Oakland which was already incredibly high access. One possible reason may be that because the city is smaller, amentities are more concentrated and so are people, easily allowing a large number of people to be within 10 minutes of a park.
+
+Next, let's see if there is a difference in income distribution in the population within a 10 min walk of a park compared to the entire population. Given Oakland's results, I also expect there to be a minimal difference here because of the similarity in these two groups.
+
+```{r}
+rbind(pa_income,pa_park_income) %>% 
+  ggplot(
+    aes(
+      x = "", 
+      y = perc, 
+      fill = reorder(income,desc(income))
+    )
+  ) + 
+  geom_bar(
+    stat = "identity", 
+    position = position_fill()
+  ) +
+  geom_text(
+    aes(label = paste0(round(perc*100),"%")), 
+    position = position_fill(vjust = 0.5)
+  ) +
+  coord_polar(theta = "y") +
+  facet_wrap(~ group)  +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    legend.position = 'bottom'
+  ) + 
+  guides(
+    fill = guide_legend(nrow=3, byrow=TRUE)
+  ) +
+  labs(
+    fill = "Household\nIncome"
+  )
+```
+While the largest percentage of the population wihtin a 10 minute walk of a park is the population with the highest income, the differences are quite small, as predicted. Once again, the hypothesis that it is difficult to afford to live near a park is clearly incorrect. Overall, this is also a pretty equitable breakdown of park access. Another point to be made here is that when looking at the amenity map, we can see that there are parks both in the center and fringes of both cities which means access to them may be more democratic than other amenities.
+<br>
+
+
+<h3>Concluding Thoughts </h3>
+
+Comparing Oakland and Palo Alto I expected to see a much larger difference than was found. Both cities followed the ripple effect with higher completeness scores in the center (better access) and lower scores towards the edges. Another point to consider is that the edge of the cities might be disproportionately disadvantaged in this analysis as we are not considering the amenities which they have access to, and maybe even closer, which are in the neighbor city. This is common and could be explore but eventually, you have to draw a line. The only case where this does not apply is the waterfront line.
+
+In terms of equity distributions, I was extremely surprised with results for both cities. As a potential next step, it would be interesting to create the same income equity analysis but with other amenities to see which amenity has the highest influence. Furthermore, if developed a lot more, tools like these could be used to understand real estate prices and even predict future trends which is quite powerful.
+
+<br>
+<br>
