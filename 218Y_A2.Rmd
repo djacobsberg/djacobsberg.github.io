@@ -25,6 +25,8 @@ library(plotly)
 library(knitr)
 library(mapboxapi)
 
+Sys.setenv(CENSUS_KEY="c8aa67e4086b4b5ce3a8717f59faa9a28f611dab")
+
 acs_vars_2019_5yr <-
   listCensusMetadata(
     name = "2019/acs/acs5",
@@ -576,6 +578,7 @@ rbind(oak_income,oak_park_income) %>%
     fill = "Household\nIncome"
   )
 ```
+<br>
 This result is incredibly fascinating. It is pretty reflective of the income breakdowns of the full population. This means access is performing on par with population income statistics. I have never seen anything like this however, it is highly credible as a significant percentage (73.2%) of the general population is represented in the second group. Thus, not that many people were excluded which explains the small difference.
 
 The largest percentage of the population wihtin a 10 minute walk of a park is the population with the lowest income. Our hypothesis that it is difficult to afford to live near a park is clearly incorrect. Perhaps we would have had a different result if we had lowered our isochrone to just 5 minutes, or even less (meaning they live on the border of the park). Perhaps some reasons this may be the result is that because Oakland is less dense then other similar mid-sized cities, there is naturally occurring open green space more abundantly available. Overall, this is a pretty equitable breakdown of park access. 
