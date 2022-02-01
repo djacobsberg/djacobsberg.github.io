@@ -974,7 +974,6 @@ pa_park_income <-
   )
 ```
 <br>
-<br>
 ```{r}
 sum(pa_park_income$estimate)/
   sum(pa_income$estimate)
@@ -1014,6 +1013,7 @@ rbind(pa_income,pa_park_income) %>%
     fill = "Household\nIncome"
   )
 ```
+<br>
 While the largest percentage of the population wihtin a 10 minute walk of a park is the population with the highest income, the differences are quite small, as predicted. Once again, the hypothesis that it is difficult to afford to live near a park is clearly incorrect. Overall, this is also a pretty equitable breakdown of park access. Another point to be made here is that when looking at the amenity map, we can see that there are parks both in the center and fringes of both cities which means access to them may be more democratic than other amenities.
 <br>
 

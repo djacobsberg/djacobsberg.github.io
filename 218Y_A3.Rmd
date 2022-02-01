@@ -1,0 +1,37 @@
+---
+title: "218Y_A3"
+author: "Daphne Jacobsberg"
+date: "2/1/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(tigris)
+library(sf)
+library(leaflet)
+library(tidycensus)
+library(censusapi)
+library(mapview)
+library(esri2sf)
+library(plotly)
+library(knitr)
+library(mapboxapi)
+
+acs_vars_2019_5yr <-
+  listCensusMetadata(
+    name = "2019/acs/acs5",
+    type = "variables"
+  )
+```
+```
+
+```{r}
+lodes <- readRDS("ca_od.rds")
+```
+
