@@ -1,8 +1,10 @@
 ---
 title: "218Y_A3"
-author: "Daphne Jacobsberg"
+author: "Daphne Jacobsberg with Catherine Beck and Lena Bakalian"
 date: "2/1/2022"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -22,6 +24,9 @@ library(esri2sf)
 library(plotly)
 library(knitr)
 library(mapboxapi)
+library(stringr)
+
+Sys.setenv(CENSUS_KEY="c8aa67e4086b4b5ce3a8717f59faa9a28f611dab")
 
 acs_vars_2019_5yr <-
   listCensusMetadata(
@@ -29,9 +34,860 @@ acs_vars_2019_5yr <-
     type = "variables"
   )
 ```
-```
+
+<h3> Analysis of Vehicle Emissions </h3>
 
 ```{r}
 lodes <- readRDS("ca_od.rds")
 ```
+
+```{r}
+# zctas <- zctas(progress_bar = F)
+# 
+# zip <- zctas %>% 
+#   filter(GEOID10 == "94043")
+# 
+# saveRDS(zip, "zip.rds")
+zip <- readRDS("zip.rds")
+
+blocks <- blocks("CA", progress_bar = F)
+
+block_sc <- blocks %>%
+  filter(COUNTYFP10 == "085")
+
+# zip_blocks <- block_sc %>%
+#   st_centroid() %>%
+#   .[zip, ]
+# 
+# zip_blocks <- saveRDS(zip_blocks, "zip_blocks.rds")
+zip_blocks <- readRDS("zip_blocks.rds")
+```
+
+```{r}
+# full_zip_od <- 2013:2019 %>% 
+#   map_dfr(function(year){
+#     
+#     print(year)
+#     
+#     temp <- read_csv("ca_od_main_JT01_", year, ".csv.gz") %>% 
+#       filter(
+#         h_geocode %in% zip_blocks$GEOID10 |
+#           w_geocode %in% zip_blocks$GEOID10
+#       ) %>% 
+#       mutate(year = year)
+#     
+#     saveRDS(temp, paste0("temp_od_", year, ".rds"))
+#     
+#     return(temp)
+#     
+#   })
+
+full_zip_od <- readRDS("full_zip_od.rds")
+```
+
+```{r}
+full_zip_od_clean <- full_zip_od %>% 
+  select(-createdate) %>% 
+  filter(!(
+    h_geocode %in% zip_blocks$GEOID10 &
+      w_geocode %in% zip_blocks$GEOID10
+  )) %>% 
+  mutate(
+    direction = ifelse(
+      h_geocode %in% zip_blocks$GEOID10,
+      "outbound",
+      "inbound"
+    )
+  )
+```
+
+```{r}
+full_zip_od_routing <- full_zip_od_clean %>% 
+  mutate(
+    origin = ifelse(
+      direction == "inbound",
+      h_geocode,
+      w_geocode
+    ),
+    cbg = origin %>% substr(1,12),
+    tract = origin %>% substr(1,11)
+  ) %>%
+  filter(!duplicated(cbg)) #origin, cbg and then tract for different levels of granularity
+```
+
+```{r}
+ca_cbgs <- block_groups("CA", cb = T, progress_bar = F)
+
+zip_od_origin <-
+  full_zip_od_routing %>%
+  select(cbg) %>%
+  left_join(ca_cbgs %>% select(cbg = GEOID)) %>%
+  st_as_sf() %>%
+  st_centroid() %>%
+  st_coordinates()
+
+zip_od_destination <-
+  zip %>%
+  st_centroid() %>%
+  st_coordinates()
+  
+```
+
+```{r}
+# zip_od_route <- 
+#   1:nrow(zip_od_origin) %>%
+#   map_dfr(function(x){
+#     
+#     tryCatch(
+#       mb_directions(
+#         origin = zip_od_origin[x, ],
+#         destination = zip_od_destination,
+#         profile = "driving-traffic"
+#       ) %>% 
+#         mutate(id = x),
+#       error = function(e){
+#         data.frame(id = x)
+#       }
+#     )
+#   }) %>% 
+#   st_as_sf()
+
+zip_od_route <- readRDS("zip_od_route.rds")
+```
+
+```{r}
+leaflet() %>%
+  addMapboxTiles(
+    style_id = "light-v9",
+    username = "mapbox"
+  ) %>%
+  addPolylines(
+    data = zip_od_route
+  )
+```
+
+```{r}
+full_zip_od_routed <- full_zip_od_routing %>%
+  cbind(zip_od_route)
+
+#made assumption that there are 261 working days/yr
+
+full_zip_od_final <- full_zip_od_clean %>% 
+  mutate(
+    origin = ifelse(
+      direction == "inbound",
+      h_geocode,
+      w_geocode
+    ),
+    cbg = substr(origin, 1, 12)
+  ) %>% 
+  left_join(
+    full_zip_od_routed %>% 
+      select(cbg, duration, distance)
+  ) %>% 
+  mutate(
+    visits = S000 * 261
+  )
+```
+
+
+```{r}
+#origin_bgs_normalized = full_zip_od_routing
+#stanford_route = zip_od_route
+
+# travel_time_mode <-
+#   counties("CA", cb = T, progress_bar = F) %>%
+#   pull(COUNTYFP) %>% 
+#   map_dfr(function(x){
+#     getCensus(
+#       name = "acs/acs5",
+#       vintage = 2019,
+#       region = "block group:*",
+#       regionin = paste0("state:06+county:", x),
+#       vars = "group(B08134)"
+#     )
+#   }) %>% 
+#   mutate(
+#     cbg =
+#       paste0(state,county,tract,block_group)
+#   )
+# 
+# saveRDS(travel_time_mode, "travel_time_mode.rds")
+# travel_time_mode <- readRDS("travel_time_mode.rds")
+# 
+# travel_time_mode_v2 <- travel_time_mode %>%
+#   filter(cbg %in% full_zip_od_final$cbg) %>% 
+#   select(!c(GEO_ID,state,county,tract,block_group,NAME) & !ends_with(c("EA","MA","M"))) %>%
+#   pivot_longer(
+#     ends_with("E"),
+#     names_to = "variable",
+#     values_to = "estimate"
+#   ) %>%
+#   left_join(
+#     acs_vars_2019_5yr %>% 
+#       select(name, label), 
+#     by = c("variable" = "name")
+#   ) %>% 
+#   select(-variable) %>% 
+#   separate(
+#     label,
+#     into = c(NA, NA, "total", "mode", "carpool", "time"),
+#     sep = "!!"
+#   ) %>% 
+#   mutate(
+#     mode = case_when(
+#       total %in% c(
+#         "Less than 10 minutes",
+#         "10 to 14 minutes",
+#         "15 to 19 minutes",
+#         "20 to 24 minutes",
+#         "25 to 29 minutes",
+#         "30 to 34 minutes",
+#         "35 to 44 minutes",
+#         "45 to 59 minutes",
+#         "60 or more minutes"
+#       ) ~ "Total",
+#       mode == "Drove alone:" ~ mode,
+#       carpool %in% c(
+#         "In 2-person carpool:",
+#         "In 3-or-more-person carpool:"
+#       ) ~ carpool
+#     ),
+#     time = case_when(
+#       mode == "Total" ~ total,
+#       mode == "Drove alone:" ~ carpool,
+#       mode == carpool ~ time
+#     )
+#   ) %>% 
+#   filter(!is.na(time)) %>% 
+#   select(-total, -carpool) %>% 
+#   pivot_wider(
+#     names_from = mode,
+#     values_from = estimate
+#   ) %>% 
+#   mutate(
+#     perc_veh1 = `Drove alone:`/Total,
+#     perc_veh2 = `In 2-person carpool:`/Total,
+#     perc_veh3 = `In 3-or-more-person carpool:`/Total
+#   )
+# 
+# saveRDS(travel_time_mode_v2, "travel_time_mode_v2.rds")
+travel_time_mode_v2 <- readRDS("travel_time_mode_v2.rds")
+```
+
+```{r}
+mtvw_trips <-
+  full_zip_od_final %>% #used to be origin_cbgs_normalized
+  # cbind(
+  #   zip_od_route %>% #used to be stanford_route
+  #     st_drop_geometry()
+  # ) %>% 
+  mutate(
+    time = case_when(
+      duration < 10 ~ "Less than 10 minutes",
+      duration < 15 ~ "10 to 14 minutes",
+      duration < 20 ~ "15 to 19 minutes",
+      duration < 25 ~ "20 to 24 minutes",
+      duration < 30 ~ "25 to 29 minutes",
+      duration < 35 ~ "30 to 34 minutes",
+      duration < 45 ~ "35 to 44 minutes",
+      duration < 60 ~ "45 to 59 minutes",
+      TRUE ~ "60 or more minutes"
+    )
+  ) %>% 
+  left_join(
+    travel_time_mode_v2 %>% 
+      select(
+        cbg = cbg,
+        time,
+        perc_veh1,
+        perc_veh2,
+        perc_veh3
+      ),
+    by = c("cbg", "time")
+  ) %>% 
+  mutate(
+    vehicles = 
+      visits * perc_veh1 + 
+      visits * perc_veh2 / 2 +
+      visits * perc_veh3 / 3,
+    vmt = vehicles * distance * 2
+  )
+```
+
+```{r}
+sum(mtvw_trips$vmt, na.rm = T)
+```
+
+```{r}
+emfac <- 
+  read_csv("EMFAC2021-EI-202xClass-BayAreaAQMD-2021-Summer-20220208180432.csv", skip = 8) %>% 
+  transmute(
+    Category = `Vehicle Category`,
+    Fuel_Type = Fuel,
+    Percent_Trips = Trips/sum(Trips),
+    Percent_Miles = `Total VMT`/sum(`Total VMT`),
+    `MTCO2_Running_Exhaust` = CO2_RUNEX/`Total VMT`,
+    `MTCO2_Start_Exhaust` = CO2_STREX/Trips
+  )
+```
+
+```{r}
+mtvw_trips_ghg <-
+  emfac %>% 
+  mutate(
+    trips = Percent_Trips * sum(mtvw_trips$visits, na.rm = T),
+    vmt = Percent_Miles * sum(mtvw_trips$vmt, na.rm = T),
+    ghg = vmt*MTCO2_Running_Exhaust + trips*MTCO2_Start_Exhaust*2
+  )
+
+sum(mtvw_trips_ghg$ghg)
+```
+
+```{r}
+total_vehicle <- readRDS("total_vehicle.rds")
+
+ggplot(
+  total_vehicle, 
+  aes(
+    x = as.factor(year), 
+    y = ghg
+  )
+) + 
+  geom_bar(stat = "identity", position = "dodge") + 
+  labs(x = "Year", y = "GHG Emissions", title = "Mountain View Annual Vehicle GHG Emissions, 2013 to 2019")
+```
+
+
+```{r}
+# this uses safegraph data so dont use this
+# 
+# mtvw_boundary <- places("CA", cb = T, progress_bar = F) %>% 
+#   filter(NAME == "Mountain View")
+# 
+# mtvw_cbgs <- 
+#   ca_cbgs %>% 
+#   st_centroid() %>% 
+#   .[mtvw_boundary, ] %>% 
+#   st_drop_geometry() %>% 
+#   left_join(ca_cbgs %>% select(GEOID)) %>% 
+#   st_as_sf()
+# 
+# 
+# leaflet() %>% 
+#   addMapboxTiles(
+#     style_id = "streets-v11",
+#     username = "mapbox"
+#   ) %>% 
+#   addPolygons(
+#     data = mtvw_cbgs,
+#     fill = F
+#   )
+# 
+# mtvw_patterns <-
+#   full_zip_od_clean %>% 
+#   filter(w_geocode_new %in% mtvw_cbgs$GEOID) ##filter down the dataset to those coming into Mountain View
+# 
+# saveRDS(mtvw_patterns, "mtvw_patterns.rds")
+# mtvw_patterns <- readRDS("mtvw_patterns.rds")
+```
+
+<h3> Analysis of Building Emissions</h3> with PG&E DATA
+
+```{r}
+pge_data <- readRDS("pge_data.rds")
+```
+
+```{r}
+us_zips <- 
+  zctas(cb = T, progress_bar = F)
+
+sc_zips <- 
+  us_zips %>% 
+  st_centroid() %>% 
+  .[counties("CA", cb = T, progress_bar = F) %>% filter(NAME == "Santa Clara"), ] %>% 
+  st_drop_geometry() %>% 
+  left_join(us_zips %>% select(GEOID10)) %>% 
+  st_as_sf() %>% 
+  st_transform(4326)
+```
+
+```{r}
+# mtvw_zips <-
+#   sc_zips %>% 
+#   filter(GEOID10 %in% c("94039","94043","94040","94085","94041","94303","94042"))
+```
+
+```{r}
+mtvw_pge_data <-
+  pge_data %>% 
+  filter(ZIPCODE == "94043") %>% 
+  filter(CUSTOMERCLASS %in% c(
+    "Elec- Commercial",
+    "Elec- Residential",
+    "Gas- Commercial",
+    "Gas- Residential"
+  )) %>% 
+  mutate(
+    ENERGYTYPE = substr(CUSTOMERCLASS,1,1)
+  ) %>% 
+  group_by(ZIPCODE, ENERGYTYPE, YEAR, CUSTOMERCLASS) %>% 
+  summarize(
+    TOTALKBTU = sum(TOTALKBTU, na.rm=T),
+    TOTALTCO2E = sum(TOTALTCO2E, na.rm=T), 
+    TOTALCUSTOMERS = mean(TOTALCUSTOMERS, na.rm=T)
+  ) %>% 
+  group_by(ENERGYTYPE, YEAR, CUSTOMERCLASS) %>%
+  summarize(across(
+    c(TOTALKBTU,TOTALTCO2E,TOTALCUSTOMERS),
+    ~sum(.,na.rm=T)
+  ))
+```
+
+
+```{r}
+#consumption
+ggplot(
+  mtvw_pge_data, 
+  aes(
+    x = as.factor(YEAR), 
+    y = TOTALKBTU/1000000
+  )
+) + 
+  geom_bar(stat = "identity", aes(fill = CUSTOMERCLASS), position = "dodge") + 
+  labs(x = "Year", y = "GBTU", title = "Mountain View Annual Energy Usage, 2013 to 2019") + 
+  scale_fill_discrete(name="Energy Type")
+
+
+#per person
+
+mtvw_pge_data_clean <-
+  mtvw_pge_data %>%
+  filter (CUSTOMERCLASS %in% c("Elec- Residential", "Gas- Residential"))
+
+ggplot(
+  mtvw_pge_data_clean, 
+  aes(
+    x = as.factor(YEAR), 
+    y = (TOTALKBTU/1000000)/1856
+  )
+) + 
+  geom_bar(stat = "identity", aes(fill = CUSTOMERCLASS), position = "dodge") + 
+  labs(x = "Year", y = "GBTU", title = "Mountain View Annual Residental Energy Usage per person, 2013 to 2019") + 
+  scale_fill_discrete(name="Energy Type")
+```
+
+```{r}
+#pollutants
+ggplot(
+  mtvw_pge_data, 
+  aes(
+    x = as.factor(YEAR), 
+    y = TOTALTCO2E
+  )
+) + 
+  geom_bar(stat = "identity", aes(fill = CUSTOMERCLASS), position = "dodge") + 
+  labs(x = "Year", y = "tCO2e", title = "Mountain View Annual Energy Usage, 2013 to 2019") + 
+  scale_fill_discrete(name="Energy Type")
+
+
+#per person
+ggplot(
+  mtvw_pge_data_clean, 
+  aes(
+    x = as.factor(YEAR), 
+    y = TOTALTCO2E/1856
+  )
+) + 
+  geom_bar(stat = "identity", aes(fill = CUSTOMERCLASS), position = "dodge") + 
+  labs(x = "Year", y = "tCO2e", title = "Mountain View Annual Residental Energy Usage per person, 2013 to 2019") + 
+  scale_fill_discrete(name="Energy Type")
+```
+
+
+```{r}
+population <-
+    getCensus(
+      name = "acs/acs5",
+      vintage = 2019,
+      region = "block group:*",
+      regionin = paste0("state:06+county:085"),
+      vars = "group(B01001)"
+    ) %>%
+  filter(tract == "509404") %>%
+  filter(block_group == "3") %>%
+  select(B01001_001E)
+
+#therefore population is 1856
+pop <- 1856
+
+```
+
+```{r}
+# lodes_wac <- 2013:2019 %>% 
+#   map_dfr(function(year){
+# 
+#     print(year)
+# 
+#     temp <- read_csv(paste0("ca_wac_S000_JT00_", year, ".csv.gz")) %>%
+#       select(C000, w_geocode) %>%
+#       mutate(year = year)
+#     
+#     saveRDS(temp, paste0("temp_wac_", year, ".rds"))
+# 
+#     return(temp)
+# 
+#   })
+# 
+# saveRDS(lodes_wac, "lodes_wac.rds")
+lodes_wac <- readRDS("lodes_wac.rds")
+
+lodes_wac_clean <-
+  lodes_wac %>%
+  filter(w_geocode %in% zip_blocks$GEOID10) %>%
+  group_by(year) %>%
+  summarise(C000 = sum(C000)) %>%
+  rename(jobs = C000)
+
+
+```
+
+
+```{r}
+hdd <- read_csv("HDDchart.csv")
+cdd <- read_csv("CDDchart.csv")
+```
+
+
+```{r}
+#a graph of residential gas (KBTU/resident/HDD), residential electricity (KBTU/resident/CDD), commercial gas (KBTU/job/HDD), and commercial electricity (KBTU/job/CDD) over time
+
+mtvw_pge_data_gas <-
+  mtvw_pge_data %>%
+  filter(ENERGYTYPE == "G") %>%
+  select(YEAR, CUSTOMERCLASS, TOTALKBTU)
+```
+
+
+```{r}
+#a graph of residential gas (KBTU/resident/HDD)
+mtvw_pge_data_gas_resd <-
+  mtvw_pge_data_gas %>%
+  filter(CUSTOMERCLASS == "Gas- Residential") %>%
+  select(YEAR, TOTALKBTU) %>%
+  cbind(hdd) %>%
+  select(-year) %>%
+  rename(hdd = `CanESM2 (Average)`)
+
+
+ggplot(
+  mtvw_pge_data_gas_resd, 
+  aes(
+    x = as.factor(YEAR), 
+    y = (TOTALKBTU/pop)/hdd
+  )
+) + 
+  geom_bar(stat = "identity", position = "dodge", fill = "red") + 
+  labs(x = "Year", y = "GBTU", title = "Mountain View Residential Gas Heating Annual Energy Usage per resident normalized, 2013 to 2019")
+```
+
+
+```{r}
+#commercial gas (KBTU/job/HDD)
+mtvw_pge_data_gas_comm <-
+  mtvw_pge_data_gas %>%
+  filter(CUSTOMERCLASS == "Gas- Commercial") %>%
+  select(YEAR, TOTALKBTU) %>%
+  cbind(hdd) %>%
+  select(-year) %>%
+  rename(hdd = `CanESM2 (Average)`) %>%
+  cbind(lodes_wac_clean) %>%
+  select(-year)
+  
+ggplot(
+  mtvw_pge_data_gas_comm, 
+  aes(
+    x = as.factor(YEAR), 
+    y = (TOTALKBTU/jobs)/hdd
+  )
+) + 
+  geom_bar(stat = "identity", position = "dodge", fill = "red") + 
+  labs(x = "Year", y = "GBTU", title = "Mountain View Commerical Gas Heating Annual Energy Usage per job normalized, 2013 to 2019")
+```
+
+
+```{r}
+mtvw_pge_data_elec <-
+  mtvw_pge_data %>%
+  filter(ENERGYTYPE == "E") %>%
+  select(YEAR, CUSTOMERCLASS, TOTALKBTU)
+
+
+
+#residential electricity (KBTU/resident/CDD)
+mtvw_pge_data_elec_resd <-
+  mtvw_pge_data_elec %>%
+  filter(CUSTOMERCLASS == "Elec- Residential") %>%
+  select(YEAR, TOTALKBTU) %>%
+  cbind(cdd) %>%
+  select(-year) %>%
+  rename(cdd = `CanESM2 (Average)`)
+
+
+ggplot(
+  mtvw_pge_data_elec_resd, 
+  aes(
+    x = as.factor(YEAR), 
+    y = (TOTALKBTU/pop)/cdd
+  )
+) + 
+  geom_bar(stat = "identity", position = "dodge", fill = "blue") + 
+  labs(x = "Year", y = "GBTU", title = "Mountain View Residential Electricity Cooling Annual Energy Usage per resident normalized, 2013 to 2019")
+
+
+#commercial electricity (KBTU/job/CDD)
+mtvw_pge_data_elec_comm <-
+  mtvw_pge_data_elec %>%
+  filter(CUSTOMERCLASS == "Elec- Commercial") %>%
+  select(YEAR, TOTALKBTU) %>%
+  cbind(cdd) %>%
+  select(-year) %>%
+  rename(cdd = `CanESM2 (Average)`) %>%
+  cbind(lodes_wac_clean) %>%
+  select(-year)
+  
+ggplot(
+  mtvw_pge_data_elec_comm, 
+  aes(
+    x = as.factor(YEAR), 
+    y = (TOTALKBTU/jobs)/cdd
+  )
+) + 
+  geom_bar(stat = "identity", position = "dodge", fill = "blue") + 
+  labs(x = "Year", y = "GBTU", title = "Mountain View Commerical Electricity Cooling Annual Energy Usage per job normalized, 2013 to 2019")
+```
+
+<h3> Analysis </h3>
+
+To begin with, let's combine both previous parts of this analysis to compared their impact and gage the gravity of the current situation.
+
+```{r}
+#part 3 a
+# total vehicle and building emissions (keeping subcategories separate is fine), year-by-year.
+
+total_ghg <-
+  mtvw_pge_data %>%
+  select(YEAR, TOTALTCO2E) %>%
+  ungroup() %>%
+  group_by(YEAR) %>%
+  rename(year = YEAR) %>%
+  summarise(ghg = sum(TOTALTCO2E)) %>%
+  mutate(type = "building") %>%
+  rbind(total_vehicle)
+  
+
+ggplot(
+  total_ghg, 
+  aes(
+    x = as.factor(year), 
+    y = ghg
+  )
+) + 
+  geom_bar(stat = "identity", aes(fill = type), position = "stack") + 
+  labs(x = "Year", y = "GHG Emissions", title = "Mountain View Annual GHG Emissions, 2013 to 2019")
+
+#change car fleet so much more often than buildings
+#buildings spend most of energy in use stage so worth dollars in construction but hard ot chnag
+```
+
+<h3> Electric Vehicles </h3>
+
+```{r}
+ca_vehicles <- read_xlsx("Vehicle Population_Last updated 04-30-2021.xlsx")
+
+mtvw_ev_vehicles <- ca_vehicles %>% 
+  filter(ZIP == "94043") %>% 
+  select(-ZIP) %>%
+  filter(`Data Year` %in% 2013:2019)
+
+
+ggplot(
+  mtvw_ev_vehicles, 
+  aes(
+    x = as.factor(`Data Year`), 
+    y = `Number of Vehicles`
+  )
+) + 
+  geom_bar(stat = "identity", aes(fill = `Fuel Type`), position = "dodge") + 
+  labs(x = "Year", y = "Number of Vehicles", title = "Mountain View Vehicles by fuel type, 2013 to 2019")
+
+mtvw_chart <-
+  mtvw_ev_vehicles %>%
+  select(-`Fuel Type`) %>%
+  group_by(`Data Year`) %>%
+  summarise(`Number of Vehicles` = sum(`Number of Vehicles`)) %>%
+  mutate(
+    `Fuel Type` = "total"
+  )
+
+mtvw_ev_combined <-
+  mtvw_ev_vehicles %>%
+  rbind(mtvw_chart)
+
+
+plot_filled_ev <-
+  mtvw_ev_combined %>% 
+  filter(`Fuel Type` %in% c("total", "Electric")) %>%
+    ggplot() +
+    geom_bar(
+      aes(
+        x = `Data Year` %>% factor(levels = rev(c("2013", "2014", "2015", "2016", "2017", "2018", "2019"))),
+        y = `Number of Vehicles`,
+        fill = `Fuel Type`
+      ),
+      stat = "identity",
+      position = "fill"
+    ) +
+    labs(
+      x = "Year",
+      y = "Proportion of Vehicles by Type",
+      title = "Mountain View vehicle type distribution by fuel type",
+      fill = "Fuel Type"
+    ) +
+    coord_flip() +
+    theme(
+      legend.position = "bottom",
+      legend.direction = "vertical"
+    )  +
+    guides(
+      fill = guide_legend(
+        reverse = T
+      )
+    )
+
+plot_filled_ev
+```
+
+
+<h3>GHG emission trends in California</h3>
+
+Taking a step further back and looking at California as a whole, here are some interesting GHG emission trends.
+
+Let's start with as broad as can be - here is a plot showing total GHG emission and per capita.
+```{r}
+#look at other part of the equation
+#98% of energy during use phase so worth investment
+#newest data is still from 2014 but can show progression
+
+ghg_trends <- read_excel("ghg_trends.xlsx", sheet = 2) %>%
+  filter(type == "per capita")
+
+ggplot(
+  ghg_trends,
+  aes(
+    x = as.factor(year),
+    y = ghg,
+    group = type
+  )
+) +
+  geom_line() +
+  geom_point() +
+  #geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Year", y = "GHG emissions (MMTCO2e)", title = "California GHG emissions per capita, 2013 to 2019")
+
+
+ghg_trends_all <- read_excel("ghg_trends.xlsx", sheet = 2) %>%
+  filter(type != "Total") %>%
+  filter(type != "per capita")
+
+ggplot(
+  ghg_trends_all,
+  aes(
+    x = as.factor(year),
+    y = ghg,
+    group = type,
+    color = type
+  )
+) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Year", y = "GHG emissions (MMTCO2e)", title = "California GHG emissions by type, 2013 to 2019")
+```
+We can see how predominant transportation is, which is in line with the previous findings comparing vehicles to buildings. After that is industry, followed by electric power which has been decreasing significantly.
+
+Now, let's look into the subcategories within transportation.
+
+```{r}
+ghg_transport <- read_excel("ghg_trends.xlsx", sheet = 4) %>%
+  filter(type != "On-Road Total")
+
+ggplot(
+  ghg_transport,
+  aes(
+    x = as.factor(Year),
+    y = ghg,
+    group = type,
+    colour = type
+  )
+) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Year", y = "GHG emissions (MMTCO2e)", title = "California Transportation GHG emissions by type, 2013 to 2019")
+```
+
+From this graph, we can really see how the most contributing type of transportation are Passenger Vehicles. What is tricky about this category is the common question "Who's responsibility is this then?" and nothing really gets done. That said, as we have seen, Electric Vehicle adoption has been steadily increasing (although not significantly enough to justify this recent drop shown in the graph). This data is one more indicator of the huge potential this solution has to create a significant impact.
+
+Finally, looking a bit more into building emissions in California over the same time period, 2013 to 2019. This source provides an interesting breakdown between housing and commercial spaces and their emissions per sqft.
+
+```{r}
+ghg_buildings <- read_excel("ghg_trends.xlsx", sheet = 6)
+
+
+ggplot(
+  ghg_buildings,
+  aes(
+    x = as.factor(Year),
+    y = ghg,
+    group = type,
+    colour = type
+  )
+) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Year", y = "GHG emissions (MMTCO2e)", title = "California Building GHG emissions by program, 2013 to 2019")
+```
+
+It is important to note that Emissions per housing unit do not take square footage into account while commercial floor space in divided by square foot which allows for a better average across disparate levels of sustainability across different buildings.
+
+While commercial purpose buildings show less volatility in their emissions compared to housing units, none really show improvement or consistency across these years. One potential reason for this could be that although newer buildings are reducing their emissions, there are so many less technologically advanced buildings still in use so we can't see a difference yet.
+
+
+```{r}
+# this dataset didn't really lead to any significant conclusions because incomplete
+# buildings_data <- read_csv("buildings.csv")%>%
+#   rename(sqft = `Property GFA - EPA Calculated (Buildings) (ft2)`)
+# 
+# buildings_data_clean <- buildings_data %>%
+#   select(`Year Built`, `Electricity Use - Grid Purchase (kWh)`, sqft)%>%
+#   filter(`Year Built` > 2000) %>%
+#   filter(`Year Built` < 2015) %>%
+#   filter(!is.na(`Electricity Use - Grid Purchase (kWh)`)) %>%
+#   filter(!is.na(sqft)) %>%
+#   group_by(`Year Built`) %>%
+#   summarise(`Electricity Use - Grid Purchase (kWh)` = sum(`Electricity Use - Grid Purchase (kWh)`), sqft = sum(sqft))
+# 
+# ggplot(
+#   buildings_data_clean, 
+#   aes(
+#     x = as.factor(`Year Built`), 
+#     y = `Electricity Use - Grid Purchase (kWh)`/sqft
+#   )
+# ) + 
+#   geom_bar(stat = "identity", position = "dodge") + 
+#   labs(x = "Year Built", y = "Electricity Use - Grid Purchase (kWh)", title = "California Average Grid Electricity Use per sqft, 2001 to 2013")
+```
+
+<h3>Concluding Thoughts</h3>
+
+
 
