@@ -408,7 +408,9 @@ ggplot(
 # saveRDS(mtvw_patterns, "mtvw_patterns.rds")
 # mtvw_patterns <- readRDS("mtvw_patterns.rds")
 ```
-
+<br>
+Unfortunately, we do not see a downwards trend in this graph. In fact, there is very little consistency. That said, looking at the y-axis we can see the scale reaches over 600000 which is extremely significant.
+<br>
 <h3> Analysis of Building Emissions</h3> with PG&E DATA
 
 ```{r}
@@ -522,7 +524,7 @@ ggplot(
 
 As we have seen before, the gas consumption is greater than electric and this graph shows this same relationship but per person. I would imagine this relationship will eventually flip in future years as more and more home appliances become electric and abandon gas usage. This is also positive in terms of the safety of homes for residents. I predict this will happen faster in more developed countries/areas.
 
-None of these two graphs show any strong trends over time, nor positive nor negative.
+Additionally, none of these two graphs above show any strong trends over time, nor positive nor negative.
 
 Moving onto emissions, here are the same two graphs but with total CO2 emissions on the y-axis.
 ```{r}
@@ -654,7 +656,7 @@ ggplot(
   labs(x = "Year", y = "GBTU", title = "Mountain View Commercial Gas Heating Annual Energy Usage per job normalized, 2013 to 2019")
 ```
 
-There seems to be more variation here and a steady and significant decrease from 2015 onward. One potential reason for this could be because the improvements tp the efficiency of heating systems over time. Alternatively, open plan offices have become more common and individual rooms have become more rare so people have been sitting more closely therefore occupying less space which minimizes the heating energy required per job.
+There seems to be more variation here and a steady and significant decrease from 2015 onward. One potential reason for this could be because the ongoing improvements to the efficiency of heating systems over time. Alternatively, open plan offices have become more common and individual rooms have become more rare so people have been sitting more closely therefore occupying less space which minimizes the heating energy required per job.
 
 For the third graph, we are back to residential, therefore per resident, but this time with cooling (electricity) and also normalized.
 
@@ -755,7 +757,7 @@ As we can see, emissions from vehicles are significantly higher than building em
 
 One encouraging piece of this puzzle is that because vehicles have a much shorter life time than buildings, we replace our entire fleet of vehicles in a much shorter period than we do our buildings. This is also partially due to the difficulty in eliminating a building compared to disposing of a car (which can also be more easily recycled due to its material composition). This means we can see the impact of changes in transportation much quicker than we do for the built environment.
 
-One of the most prominent and upcoming solutions to vehicle emissions are electric vehicles. Thus, we have chosen to explore whether there is an correlation (we expect inverse) between these two factors.
+One of the most prominent and upcoming solutions to vehicle emissions are electric vehicles. Thus, we have chosen to explore whether there is a correlation (we expectto see an inverse one) between these two factors.
 
 <h3> Electric Vehicles </h3>
 
@@ -782,6 +784,7 @@ ggplot(
   geom_bar(stat = "identity", aes(fill = `Fuel Type`), position = "dodge") + 
   labs(x = "Year", y = "Number of Vehicles", title = "Mountain View Vehicles by fuel type, 2013 to 2019")
 ```
+<br>
 We can see there is a clear majority of vehicles that run on gasoline, followed by gasoline hybrid. Although hard to identify, the graph shows an increase in PHEV vehicles over the years and looking at electric, while the numbers are still very low, you can see a small upwards trend.
 
 With such small scale changes, it is often interesting to see the percentages rather than absolute values. Below is a plot showing electric vehicles as a percentage of total vehicles.
@@ -833,6 +836,7 @@ plot_filled_ev <-
 
 plot_filled_ev
 ```
+<br>
 This confirms our initial analysis that there has been a consistent increase in electric vehicles however also shows us numbers are too small to already display a visible change in emissions. Overall, this looks like a promising scenario. One potential issue with the solution is providing necessary infrastructure such as charging stations which we will discuss now.
 
 How you would try to resolve these allocation problems if you could design the GHG accounting methodology for Bay Area cities?
@@ -842,9 +846,9 @@ Per the extended producer responsibility doctrine California has continued to fo
 
 <h3>GHG emission trends in California</h3>
 
-Taking a step further back and looking at California as a whole, here are some interesting GHG emission trends.
+It can also be insgihtful to take step back and look at this data in the larger California domain so, here are some interesting GHG emission trends for the entire state over the same period of time.
 
-Let's start with as broad as can be - here is a plot showing total GHG emission per capita.
+Let's start with as broad as can be - below is a plot showing total GHG emission per capita.
 <br>
 ```{r}
 ghg_trends <- read_excel("ghg_trends.xlsx", sheet = 2) %>%
@@ -862,9 +866,10 @@ ggplot(
   geom_point() +
   labs(x = "Year", y = "GHG emissions (MMTCO2e)", title = "California GHG emissions per capita, 2013 to 2019")
 ```
-This graph brings great news - GHG emissions per capita, while still very high, have been dropping significantly. In fact, they have changed from 11.7 in 2013 to 10.5 in 2019 (MMTCO2e).
+<br>
+This graph looks extremely promising - GHG emissions per capita, while still very high, have been dropping significantly. In fact, they have changed from 11.7 in 2013 to 10.5 in 2019 (MMTCO2e).
 
-But where is all this energy going to?
+But where is all this energy that we consume going to?
 
 ```{r}
 ghg_trends_all <- read_excel("ghg_trends.xlsx", sheet = 2) %>%
@@ -929,7 +934,7 @@ ggplot(
   labs(x = "Year", y = "GHG emissions (MMTCO2e)", title = "California Building GHG emissions by program, 2013 to 2019")
 ```
 
-It is important to note that Emissions per housing unit do not take square footage into account while commercial floor space in divided by square foot which allows for a better average across disparate levels of sustainability across different buildings.
+It is important to note that Emissions per housing unit do not take square footage into account while with commercial floor space, emissions are divided by square foot which allows for a better average across disparate levels of sustainability across different buildings.
 
 While commercial purpose buildings show less volatility in their emissions compared to housing units, none really show improvement or consistency across these years. One potential reason for this could be that although newer buildings are reducing their emissions, there are so many less technologically advanced buildings still in use so we can't see a difference yet.
 
@@ -961,10 +966,14 @@ While commercial purpose buildings show less volatility in their emissions compa
 
 <h3>Concluding Thoughts</h3>
 
-Ultimately, comparing buildings and vehicles we can see vehicles correspond to a much larger portion of our consumption and emissions however, they have a shorter life time which allows for faster change and impact. Vehicles are more of an individual choice than buildings which leads to more blurry lines about who's responsibility it is to invest/subsidize the new technology. On the other hand, decision making around buildings are more easily regulated as there are central parties such as developers.
+Ultimately, comparing buildings and vehicles we can see vehicles correspond to a much larger portion of our consumption and emissions however, they have a shorter life time which allows for faster change and impact. Vehicles are more of an individual choice than buildings which leads to more blurry lines about who's responsibility it is to invest/subsidize the new technology. On the other hand, decision making around buildings are more easily regulated as there are centralizing parties such as developers.
 
-Another interesting factor to keep in mind about buildings is that about 98% of the energy they consume are within their use phase (heating and cooling are the main examples). This means that any additional energy and money consumed during construction can be justified and will most likely be worth it. The downside of this is that we are still dealing with the consequences of older buildings.
+Another interesting factor to keep in mind about buildings is that about 98% of the energy they consume is during their use phase (heating and cooling are the main examples). This means that any additional energy and money consumed during construction can most likely be justified and will prove to be worth it. The downside of this is that we are still dealing with the impact of older buildings.
 
 Nonetheless, investing in more sustainable options is of utmost importance and moreover, is a time sensitive pressing issue.
 
+Going forward, I think it would be incredibly interesting to see how the Covid-19 pandemic has impacted these emissions. Not only during the more critical 2019/2020 years in which there was drastic change but also going forward into the future as I believe going through this will essentially change the way we live in forever. Specifically, transportation and commercial spaces, two of the main factors of this analysis, are where we will see the biggest changes. Hopefully, it's a change for the better.
 
+<br>
+<br>
+<br>
