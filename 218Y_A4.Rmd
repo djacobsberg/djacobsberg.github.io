@@ -93,12 +93,12 @@ leaflet() %>%
     label = ~GEOID
   ) %>% 
     addPolygons(
-    color = "pink",
+    color = "red",
     data = rdwd_cbgs %>% 
       dplyr::filter(GEOID == "060816103021"),
   ) %>%
   addPolygons(
-    color = "brown",
+    color = "red",
     data = rdwd_cbgs %>% 
       dplyr::filter(GEOID == "060816103034"),
   ) %>%
