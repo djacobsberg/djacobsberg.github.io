@@ -820,7 +820,7 @@ final_table <-
   select(GEOID, aal) %>%
   st_drop_geometry()
 
-kable(final_table) %>% prettyNum(",") %>% paste0("$",.)
+kable(final_table)
 
 sum(final_table$aal) %>% prettyNum(",") %>% paste0("$",.)
 ```
