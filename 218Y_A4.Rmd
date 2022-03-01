@@ -391,7 +391,7 @@ rdwd_veh_projection <- rdwd_bg_vehicle_total %>%
   dplyr::select(-perc) 
 
 ```
-Assuming each city in San Mateo is increasing vehicle count by the same amount each decade, we can use EMFAC data to determine how many vehicles there will be in our flood risk zone between 2020-2050. In 2020 there is expected to be 5645 cars, in 2030 there is expected to be 7997.906, in 2030 there is expected be 9487.590, and in 2050 there is expected to be 10106.098 vehicles. Households with no vehicles in our study area is also projected to increase by the same percentage and same with households with one vehicle. When determining flood risk for these vehicles, we need to remember that we are using household flood risk as our test, so it will look like there is little to no risk for those households with 1/0 vehicles. Obviously, this is not the case, however, this particular model is looking at vehicle-related flood damage and thus cannot capture accurately the damage incurred by households.
+Assuming each city in San Mateo is increasing vehicle count by the same amount each decade, we can use EMFAC data to determine how many vehicles there will be in our flood risk zone between 2020-2050. In 2020 there is expected to be 5645 vehicles, in 2030 there is expected to be 7997.906, in 2030 there is expected be 9487.590, and in 2050 there is expected to be 10106.098 vehicles. Households with no vehicles in our study area is also projected to increase by the same percentage and same with households with one vehicle. When determining flood risk for these vehicles, we need to remember that we are using household flood risk as our test, so it will look like there is little to no risk for those households with 1/0 vehicles. Obviously, this is not the case, however, this particular model is looking at vehicle-related flood damage and thus cannot capture accurately the damage incurred by households.
 
 It is important to keep track of the households with zero and one vehicles available. We can see that in 2020, out of total households, 81 of them did not have any vehicles available and 919 of them had only one vehicle available. In 2050, we predict 145 of them will not have vehicles available and 1645 will have one vehicle available. This is based on the assumption that growth will be linear which is not necessarily the case. In fact, both scenarios are possible. For example, if public transportation improves and people realise they no longer need an individual vehicle to get to work or simply have a remote job, people might choose to save money and not have a vehicle in their household. On the other hand, as with most technology, owning a vehicle could become cheaper, especially used ones, which might lead to people buying more vehicles and thus, the number of households with none or one vehicle decreasing or increasing but not proportionately.
 <br>
@@ -437,7 +437,7 @@ ggplot(
 
 <h3> Part 3: Vehicles per Building </h3>
 
-In this next stage, we tied some loose ends and combined spatial data with building and vehicle data to create measures of vehicles per person, people per building and  by multiplying those two, vehicles per building. This variable will be very important from this point onward as we will now apply flood risk data to buildings and with this factor, to cars.
+In this next stage, we tied some loose ends and combined spatial data with building and vehicle data to create measures of vehicles per person, people per building and  by multiplying those two, vehicles per building. This variable will be very important from this point onward as we will now apply flood risk data to buildings and with this factor, to vehicles.
 
 An important assumption at this stage was that the population is distributed evenly across buildings in a block and therefore, so are vehicles.
 ```{r}
@@ -476,6 +476,7 @@ rdwd_veh_per_bldg <- rdwd_bldgs %>%
 <h3> Part 4: Vulnerability Data </h3>
 
 Here, we used the MEMORANDUM FOR PLANNING COMMUNITY OF PRACTICE by the DEPARTMENT OF THE ARMY as a source for our vulnerability data. This allows us to develop a relationship between flood depth and vehicle damage.
+<br>
 <br>
 ```{r}
 vulnerability <- data.frame(
@@ -591,7 +592,6 @@ rdwd_plot <-
 
 rdwd_plot
 ```
-
 <br>This graph shows the percent damage in relation to the average flood depth. We can see these two factors are proportional, as we would expect them to be. While the increase from 0 to 0.5 is smaller than others, from 0.5 to 1 is the most critical. The curve continues and eventually plateaus after 6 which makes sense as there is total damage.
 
 
@@ -654,7 +654,7 @@ rdwd_vehicle_aal_by_slr <-
 ```
 Out of our selected cbgs, 133808609 clearly has the highest dollar cost related to flood damage.
 
-Next, we will consider, for any given year (we have bouded our analysis to the 2020-2050 range), the likelihood of sea level rise being some amount or greater. Intuitively for the current year, the current sea level rise is what current data indicates, and the chances of any greater amount of sea level rise before the end of the year are effectively zero. Ten years from now, the distribution of probabilities will be based on climate models.
+Next, we will consider, for any given year (we have bounded our analysis to the 2020-2050 range), the likelihood of sea level rise being some amount or greater. Intuitively for the current year, the current sea level rise is what current data indicates, and the chances of any greater amount of sea level rise before the end of the year are effectively zero. Ten years from now, the distribution of probabilities will be based on climate models.
 
 ```{r}
 rcp45 <- read_csv("https://raw.githubusercontent.com/stanfordfuturebay/stanfordfuturebay.github.io/master/advanced/rcp45_sanfrancisco.csv")
@@ -705,7 +705,7 @@ rdwd_vehicle_aal_by_year <-
 ##bldg footprint is the proxy for the vehicles at street level and garage 
 ```
 
-Now we have projected flood risk between 2020 - 2050 and its associated $ damage. It seems like 2020 and 2030 are going to be the most costly years.
+Now we have projected flood risk between 2020 - 2050 and its associated $ damage and it seems like 2020 and 2030 are going to be the most costly years.
 
 ```{r}
 rdwd_vehicle_aal_by_year_map <-
@@ -825,7 +825,7 @@ final_table <-
 kable(final_table)
 ```
 <br>
-We will now show these number on a map:
+We will now display these number on a map:
 <br>
 ```{r}
 aal_pal <- colorNumeric(
