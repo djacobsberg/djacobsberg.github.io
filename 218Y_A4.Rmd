@@ -41,7 +41,7 @@ Sys.setenv(CENSUS_KEY="c8aa67e4086b4b5ce3a8717f59faa9a28f611dab")
 acs_vars_2019_5yr <- readRDS("acs_vars_2019_5yr.rds")
 ```
 
-The objective of this project is to combine multiple sources of data and a variety of techniques to quantify the potential damage associated with sea level rise over time. As I walk through the steps of this model, one of the main points I will emphasize are its assumptions, flaws and points to be considered.
+The objective of this project is to combine multiple sources of data and a variety of techniques to quantify the potential damage associated with sea level rise over time. The final result will be an estimate average annualized loss, in $ vehicle damages, for our study area, during the period of 2020 to 2050. As I walk through the steps of this model, one of the main points I will emphasize are its assumptions, flaws and points to be considered.
 
 <h3> Part 1: Measuring Sea Level Rise Over Time </h3>
 
@@ -266,7 +266,7 @@ rdwd_bldg_exposure <- readRDS("rdwd_bldg_exposure.rds") ##turn average depth int
 
 Once we have determined the exposure, we can use EMFAC data and more importantly, their predictions for 2030, 2040 and 2050 to predict the growth of the number of vehicles. This step is important as it allows us to estimate future damages.
 
-Next, using 50years Census data, we estimated of the total number of owned vehicles which we will then apply the growth percentage to.
+Next, using 5-year Census data, we estimated of the total number of owned vehicles which we will then apply the growth percentage to.
 
 ```{r}
 emfac <- read_csv("EMFAC2021-EI-202xClass-SanMateo2020-2030-2040-2050-Annual-20220214202738.csv", skip = 8)
@@ -394,8 +394,12 @@ rdwd_veh_projection <- rdwd_bg_vehicle_total %>%
 Assuming each city in San Mateo is increasing vehicle count by the same amount each decade, we can use EMFAC data to determine how many vehicles there will be in our flood risk zone between 2020-2050. In 2020 there is expected to be 5645 cars, in 2030 there is expected to be 7997.906, in 2030 there is expected be 9487.590, and in 2050 there is expected to be 10106.098 vehicles. Households with no vehicles in our study area is also projected to increase by the same percentage and same with households with one vehicle. When determining flood risk for these vehicles, we need to remember that we are using household flood risk as our test, so it will look like there is little to no risk for those households with 1/0 vehicles. Obviously, this is not the case, however, this particular model is looking at vehicle-related flood damage and thus cannot capture accurately the damage incurred by households.
 
 It is important to keep track of the households with zero and one vehicles available. We can see that in 2020, out of total households, 81 of them did not have any vehicles available and 919 of them had only one vehicle available.
+<br>
+<br>
+Onwer vs renter occupied?
 
 The census data set we used included tenure data and a tangential question that came to mind at this point was whether tenure was correlated with the number of vehicles available in a household. I thought it could be possible that owner occupied households would have more vehicles.
+<br>
 ```{r}
 #just out of curiosity
 tenure_plot <- rdwd_bg_vehicle %>%
@@ -432,7 +436,7 @@ ggplot(
 
 <h3> Part 3: Vehicles per Building </h3>
 
-In this next step, we tied some loose ends and combined spatial data with building and vehicle data to create measures of vehicles per person, people per building and  by multiplying those two, vehicles per building. This variable will be very important from this point onward as we will now apply flood risk data to buildings and with this factor, to cars.
+In this next stage, we tied some loose ends and combined spatial data with building and vehicle data to create measures of vehicles per person, people per building and  by multiplying those two, vehicles per building. This variable will be very important from this point onward as we will now apply flood risk data to buildings and with this factor, to cars.
 
 An important assumption at this stage was that the population is distributed evenly across buildings in a block and therefore, so are vehicles.
 ```{r}
@@ -587,6 +591,7 @@ rdwd_plot <-
 rdwd_plot
 ```
 
+This graph shows the percent damage in relation to the average flood depth. We can see these two factors are proportional, as we would expect them to be. While the increase from 0 to 0.5 is smaller than others, from 0.5 to 1 is the most critical. The curve continues and eventually plateaus after 6 which makes sense as there is total damage.
 
 
 <h3> Part 5: Average Annualized Cost of Floods </h3>
@@ -594,6 +599,7 @@ rdwd_plot
 <h4> Risk Estimation </h4>
 
 Lastly, once we know the damage, the next step is to transform this into a dollar value. The first step here is to assume a value for an average car which according to the NYT, the average cost of a car in 2020 is $24,112. We also took into account the percentage of respondents who did not move vehicles with warning greater than 12 hours.
+
 ```{r}
 projection <- "+proj=utm +zone=10 +ellps=GRS80 +datum=NAD83 +units=ft +no_defs"
 
@@ -651,7 +657,7 @@ Next, we will consider, for any given year (we have bouded our analysis to the 2
 
 ```{r}
 rcp45 <- read_csv("https://raw.githubusercontent.com/stanfordfuturebay/stanfordfuturebay.github.io/master/advanced/rcp45_sanfrancisco.csv")
-rcp45
+#rcp45
 ```
 
 
@@ -698,7 +704,7 @@ rdwd_vehicle_aal_by_year <-
 ##bldg footprint is the proxy for the vehicles at street level and garage 
 ```
 
-Now we have projected flood risk between 2020 - 2050 and its associated $ damage. It seems like 2020 and 2030 are going to be the most costly years. 
+Now we have projected flood risk between 2020 - 2050 and its associated $ damage. It seems like 2020 and 2030 are going to be the most costly years.
 
 ```{r}
 rdwd_vehicle_aal_by_year_map <-
@@ -962,6 +968,9 @@ This is in many ways a sanity check for our method as the mean value from all th
 
 <h4> Concluding Thoughts </h4>
 
+Unfortunately, these values are incredibly high and bare a great cost to society. Furthermore, it is scary to think about how this scenario is like a base-case scenario. This only reinforces the urgency to act and raise awareness about this issue. Sea level rise is one of the main consequences of global warming and temperature rise and can lead to astronomical damage. Ultimately, the path we are on is not looking good, in fact, it looks horrible, and that will unfortunately be the case unless we take make some severe and immediate changes to the way our society works. Actions have consequences...
+
+One last thought I would like to share was something that came up in a group discussion about how contradictory it is that in many cases, houses by the water are more expensive and considered more valuable real estate than those inland. A thought that crossed my mind was if somehow we could use real estate prices to drive the market towards a brighter future and minimize the damage. That said, moving away from the coast is only adaptation, not mitigation.
 <br>
 <br>
 
