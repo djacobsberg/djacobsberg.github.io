@@ -1,6 +1,6 @@
 ---
 title: "218Y_A4"
-author: "Daphne Jacobsberg"
+author: "Daphne Jacobsberg with Lena Bakalian and Catherine Beck"
 date: "2/17/2022"
 output: html_document
 editor_options: 
@@ -80,6 +80,35 @@ plot(test_flood_rdwd)
 ```
 
 ```{r}
+#just to show where the cbgs are
+leaflet() %>% 
+  addProviderTiles(providers$CartoDB.Positron) %>% 
+  addPolygons(
+    data = rdwd_cbgs,
+    weight = 1,
+    color = "transparent",
+    label = ~GEOID
+  ) %>% 
+    addPolygons(
+    color = "pink",
+    data = rdwd_cbgs %>% 
+      dplyr::filter(GEOID == "060816103021"),
+  ) %>%
+  addPolygons(
+    color = "brown",
+    data = rdwd_cbgs %>% 
+      dplyr::filter(GEOID == "060816103034"),
+  ) %>%
+    addPolygons(
+    color = "red",
+    data = rdwd_cbgs %>% 
+      dplyr::filter(GEOID == "060816103032"),
+  )
+
+```
+
+
+```{r}
 test_flood_rdwd_raster <- test_flood %>%
   raster::crop(
     rdwd_cbgs %>%
@@ -116,7 +145,7 @@ leaflet() %>%
 ##pass through Redwood City
 for(slr in c("000","025","050")){ ##sea level rise options
   for(rp in c("001","020","100")){ ##time periods
-    print(paste0("SLR",slr,"_RP",rp))
+    #print(paste0("SLR",slr,"_RP",rp))
     
     path <-  paste0("drive-downloads/county_san_mateo_flddepth_slr",str_pad(slr, 3, "left", "0"),"_w",str_pad(rp, 3, "left", "0"),".tif")
       # paste0("san_mateo_flooding_slr",slr,"/flooding/v2.1/county_san_mateo_flddepth_slr",slr,"_w",rp,".tif")
@@ -133,7 +162,7 @@ for(slr in c("000","025","050")){ ##sea level rise options
 
 ```
 
-<h3> Building Exposure </h3>
+<h4> Building Exposure </h4>
 ```{r}
 # osm_bldg <- readRDS("osm_bldg.rds")
 # 
@@ -146,7 +175,6 @@ for(slr in c("000","025","050")){ ##sea level rise options
 rdwd_cbg_bldg <- readRDS("rdwd_cbg_bldg.rds")
 ```
 
-<h3> Building Exposure </h3> 
   
 ```{r}
 ##Flood potential 
@@ -341,7 +369,7 @@ ggplot(
   )
 ) + 
   geom_bar(stat = "identity", position = "dodge") + 
-  labs(x = "Number of vehicles in households", y = "Number of household", title = "Mountain View Annual Vehicle GHG Emissions, 2013 to 2019")
+  labs(x = "Number of vehicles in households", y = "Number of household", title = "Distribution of Vehicles in Owner and Renter occupied households")
 
 #owner average 20.05 cars/household
 #renters average 1.714 cars/household so not significant
@@ -575,7 +603,7 @@ rdwd_vehicle_damage <-
   ) %>% 
   select(osm_id, SLR, RP, damage)
 
-head(rdwd_vehicle_damage) ##$$ damage for each vehicle, for each event
+#head(rdwd_vehicle_damage) ##$$ damage for each vehicle, for each event
 ```
 
 
@@ -595,7 +623,7 @@ rdwd_vehicle_aal_by_slr <-
   ) %>% 
   select(osm_id, SLR, damage)
 
-head(rdwd_vehicle_aal_by_slr)
+#head(rdwd_vehicle_aal_by_slr)
 
 #assigning a dollar value damage to each osm_id aka individual building
 #133808609 clearly has a higher dollar value damage
@@ -647,7 +675,7 @@ rdwd_vehicle_aal_by_year <-
   ) %>% 
   select(osm_id, year, damage)
 
-head(rdwd_vehicle_aal_by_year)
+#head(rdwd_vehicle_aal_by_year)
 ##bldg footprint is the proxy for the vehicles at street level and garage 
 ```
 
@@ -801,103 +829,106 @@ rdwd_bg_aal %>%
 ```
 Here we can visually see the AAL across our block groups. The darkest chunk has the middle-most amount of buildings but the greatest loss, the orange has the most buildings and a little less loss, the white chunk has the least amount of buildings and the least amount of loss. This probably has to do with the fact that the white chunk is the most inland versus the darkest chunk which is closest to the water and the canals.Waterfront properties generally are more expensive than inland ones so it would makes sense that despite there being a fair amount of buildings, there is a huge loss compared to the middle chunk. Even at the block level, however, our results may not be granular enough to fully understand the placement of the buildings and their associated AALs. This would be an interesting starting point to look at cost of housing, housing tenancy, and AAL affects.
 
-Monte Carlo Simulation
+<h4> Monte Carlo Simulation </h4>
 ```{r}
-vehicle_damage_montecarlo <-
-  map2(
-    vulnerability$perc_damage,
-    vulnerability$stdev,
-    function(x,y) rnorm(10000, x, y)
-  ) %>%
-  transpose()
-
-montecarlo_result <-
-  vehicle_damage_montecarlo %>% 
-  map(function(sim){
-    
-    temp <-
-      approx(
-        x = vulnerability$depth,
-        y = sim %>% unlist(),
-        xout = rdwd_vehicle_exposure$avg_depth
-      ) %>%
-      .[2] %>%
-      as.data.frame() %>%
-      rename(perc_damage = y) %>%
-      cbind(rdwd_vehicle_exposure) %>%
-        left_join(
-    rdwd_veh_per_bldg %>% 
-      st_drop_geometry() %>% 
-      select(osm_id, veh_per_bldg)
-  ) %>% 
-  filter(!is.na(veh_per_bldg)) %>%
-      mutate(
-    damage = veh_per_bldg * 0.119 * 24112* perc_damage #from NYT, average cost of a car in 2020 ($24,112) multiplied by the percentage of respondents who did not move vehicles with warning greater than 12 hours
-  ) %>% 
-  select(osm_id, SLR, RP, damage) %>%
-      pivot_wider(
-    names_from = RP,
-    values_from = damage
-  ) %>% 
-  replace(is.na(.), 0) %>% 
-  mutate(
-    damage = 
-      0.95*(`001`+`020`)/2 + 
-      0.04*(`020`+`100`)/2 + 
-      0.01*(`100`)
-  ) %>% 
-  select(osm_id, SLR, damage) %>%
-  left_join(
-    rcp45 %>% 
-      mutate(
-        SLR = str_pad(SLR, 3 , "left", "0")
-      ) %>% 
-      select(
-        SLR,
-        `2020`,
-        `2030`,
-        `2040`,
-        `2050`
-      )
-  ) %>% 
-  pivot_longer(
-    `2020`:`2050`,
-    names_to = "year",
-    values_to = "occurrence"
-  ) %>% 
-  pivot_longer(
-    c(damage,occurrence),
-    names_to = "key",
-    values_to = "value"
-  ) %>% 
-  pivot_wider(
-    names_from = c("key","SLR"),
-    values_from = value
-  ) %>% 
-  replace(is.na(.), 0) %>% 
-  mutate(
-    damage = 
-      occurrence_000 * (damage_000 + damage_025)/2 + 
-      occurrence_025 * (damage_025 + damage_050)/2 + 
-      occurrence_050 * (damage_050)
-  ) %>% 
-  select(osm_id, year, damage) %>%
-      pivot_wider(
-    names_from = year,
-    values_from = damage
-  ) %>% 
-      mutate(
-    aal = (`2020`*5 + `2030`*10 + `2040`*10 + `2050`*5)/30
-  ) %>%
-      pull(aal) %>%
-      sum()
-    
-  }) %>% 
-  unlist()
+# vehicle_damage_montecarlo <-
+#   map2(
+#     vulnerability$perc_damage,
+#     vulnerability$stdev,
+#     function(x,y) rnorm(10000, x, y)
+#   ) %>%
+#   transpose()
+# 
+# montecarlo_result <-
+#   vehicle_damage_montecarlo %>% 
+#   map(function(sim){
+#     
+#     temp <-
+#       approx(
+#         x = vulnerability$depth,
+#         y = sim %>% unlist(),
+#         xout = rdwd_vehicle_exposure$avg_depth
+#       ) %>%
+#       .[2] %>%
+#       as.data.frame() %>%
+#       rename(perc_damage = y) %>%
+#       cbind(rdwd_vehicle_exposure) %>%
+#         left_join(
+#     rdwd_veh_per_bldg %>% 
+#       st_drop_geometry() %>% 
+#       select(osm_id, veh_per_bldg)
+#   ) %>% 
+#   filter(!is.na(veh_per_bldg)) %>%
+#       mutate(
+#     damage = veh_per_bldg * 0.119 * 24112* perc_damage #from NYT, average cost of a car in 2020 ($24,112) multiplied by the percentage of respondents who did not move vehicles with warning greater than 12 hours
+#   ) %>% 
+#   select(osm_id, SLR, RP, damage) %>%
+#       pivot_wider(
+#     names_from = RP,
+#     values_from = damage
+#   ) %>% 
+#   replace(is.na(.), 0) %>% 
+#   mutate(
+#     damage = 
+#       0.95*(`001`+`020`)/2 + 
+#       0.04*(`020`+`100`)/2 + 
+#       0.01*(`100`)
+#   ) %>% 
+#   select(osm_id, SLR, damage) %>%
+#   left_join(
+#     rcp45 %>% 
+#       mutate(
+#         SLR = str_pad(SLR, 3 , "left", "0")
+#       ) %>% 
+#       select(
+#         SLR,
+#         `2020`,
+#         `2030`,
+#         `2040`,
+#         `2050`
+#       )
+#   ) %>% 
+#   pivot_longer(
+#     `2020`:`2050`,
+#     names_to = "year",
+#     values_to = "occurrence"
+#   ) %>% 
+#   pivot_longer(
+#     c(damage,occurrence),
+#     names_to = "key",
+#     values_to = "value"
+#   ) %>% 
+#   pivot_wider(
+#     names_from = c("key","SLR"),
+#     values_from = value
+#   ) %>% 
+#   replace(is.na(.), 0) %>% 
+#   mutate(
+#     damage = 
+#       occurrence_000 * (damage_000 + damage_025)/2 + 
+#       occurrence_025 * (damage_025 + damage_050)/2 + 
+#       occurrence_050 * (damage_050)
+#   ) %>% 
+#   select(osm_id, year, damage) %>%
+#       pivot_wider(
+#     names_from = year,
+#     values_from = damage
+#   ) %>% 
+#       mutate(
+#     aal = (`2020`*5 + `2030`*10 + `2040`*10 + `2050`*5)/30
+#   ) %>%
+#       pull(aal) %>%
+#       sum()
+#     
+#   }) %>% 
+#   unlist()
+# 
+# saveRDS(montecarlo_result, "montecarlo_result.rds")
+montecarlo_result <- readRDS("montecarlo_result.rds")
 
 hist(montecarlo_result)
 
-mean(montecarlo_result)
+mean(montecarlo_result) %>% prettyNum(",") %>% paste0("$",.)
 ```
 
 
