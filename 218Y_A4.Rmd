@@ -41,8 +41,11 @@ Sys.setenv(CENSUS_KEY="c8aa67e4086b4b5ce3a8717f59faa9a28f611dab")
 acs_vars_2019_5yr <- readRDS("acs_vars_2019_5yr.rds")
 ```
 
+The objective of this project is to combine multiple sources of data and a variety of techniques to quantify the potential damage associated with sea level rise over time. As I walk through the steps of this model, one of the main points I will emphasize are its assumptions, flaws and points to be considered.
 
-<h3> Part 1 </h3>
+<h3> Part 1: Measuring Sea Level Rise Over Time </h3>
+
+The first step was to select an area of interest. We chose to focus on these three block groups which are highlighted on the map below. Within Redwood City in San Mateo County, we purposefully chose three cbgs with a very high area of water meaning their exposure to flooding and thus, damages are higher than average.
 
 ```{r}
 slr <- 25
@@ -75,7 +78,7 @@ test_flood_rdwd <- test_flood %>%
   )
 
 
-plot(test_flood_rdwd)
+#plot(test_flood_rdwd)
 
 ```
 
@@ -107,6 +110,7 @@ leaflet() %>%
 
 ```
 
+Here is a map showing flood damage for one of the selected cbgs. This confirms our hypothesis that flood depth would be decrease as the distance from the sea increases. The darker path you can see along the map indicate the path of water in the canals and around some properties.
 
 ```{r}
 test_flood_rdwd_raster <- test_flood %>%
@@ -159,10 +163,9 @@ for(slr in c("000","025","050")){ ##sea level rise options
     writeRaster(flood, paste0("SLR",slr,"_RP",rp,"_rdwd_flood.tif"), overwrite = T)
   }
 }
-
 ```
 
-<h4> Building Exposure </h4>
+
 ```{r}
 # osm_bldg <- readRDS("osm_bldg.rds")
 # 
@@ -175,7 +178,10 @@ for(slr in c("000","025","050")){ ##sea level rise options
 rdwd_cbg_bldg <- readRDS("rdwd_cbg_bldg.rds")
 ```
 
-  
+<h3> Part 2: Building Exposure in Redwood City </h3>
+
+Now, we are ready to measure exposure and quantify floods. At this point we make an assumption that the location of buildings is representative of the location of vehicles and so, we can use one to approximate the other.
+
 ```{r}
 ##Flood potential 
 flood_max <- 
@@ -258,7 +264,9 @@ rdwd_bldg_flooded_max <- readRDS("rdwd_bldg_flooded_max.rds")
 rdwd_bldg_exposure <- readRDS("rdwd_bldg_exposure.rds") ##turn average depth into values currency 
 ```
 
-<h3> Part 2 </h3>
+Once we have determined the exposure, we can use EMFAC data and more importantly, their predictions for 2030, 2040 and 2050 to predict the growth of the number of vehicles. This step is important as it allows us to estimate future damages.
+
+Next, using 50years Census data, we estimated of the total number of owned vehicles which we will then apply the growth percentage to.
 
 ```{r}
 emfac <- read_csv("EMFAC2021-EI-202xClass-SanMateo2020-2030-2040-2050-Annual-20220214202738.csv", skip = 8)
@@ -342,40 +350,6 @@ rdwd_bg_vehicle <-
   filter(cbg %in% rdwd_cbg$GEOID)
 ```
 
-```{r}
-#just out of curiosity
-tenure_plot <- rdwd_bg_vehicle %>%
-  mutate(
-    vehicle = case_when(
-      vehicle == "No vehicle available" ~ "0 Vehicles",
-      vehicle == "1 vehicle available" ~ "1 Vehicle",
-      vehicle == "2 vehicles available" ~ "2 Vehicles",
-      vehicle == "3 vehicles available" ~ "3 Vehicles",
-      vehicle == "4 vehicles available" ~ "4 Vehicles",
-      vehicle == "5 or more vehicles available" ~ "5+ Vehicles"
-    )) %>%
-  dplyr::select(-cbg) %>%
-  group_by(tenure, vehicle) %>%
-  summarise(estimate = sum(estimate))
-  
-  
-
-ggplot(
-  tenure_plot, 
-  aes(
-    x = as.factor(vehicle), 
-    y = estimate,
-    fill = tenure
-  )
-) + 
-  geom_bar(stat = "identity", position = "dodge") + 
-  labs(x = "Number of vehicles in households", y = "Number of household", title = "Distribution of Vehicles in Owner and Renter occupied households")
-
-#owner average 20.05 cars/household
-#renters average 1.714 cars/household so not significant
-
-```
-
 
 ```{r}
 rdwd_vehicle_zero_one <-
@@ -419,8 +393,48 @@ rdwd_veh_projection <- rdwd_bg_vehicle_total %>%
 ```
 Assuming each city in San Mateo is increasing vehicle count by the same amount each decade, we can use EMFAC data to determine how many vehicles there will be in our flood risk zone between 2020-2050. In 2020 there is expected to be 5645 cars, in 2030 there is expected to be 7997.906, in 2030 there is expected be 9487.590, and in 2050 there is expected to be 10106.098 vehicles. Households with no vehicles in our study area is also projected to increase by the same percentage and same with households with one vehicle. When determining flood risk for these vehicles, we need to remember that we are using household flood risk as our test, so it will look like there is little to no risk for those households with 1/0 vehicles. Obviously, this is not the case, however, this particular model is looking at vehicle-related flood damage and thus cannot capture accurately the damage incurred by households.
 
-<h3> Part 3 </h3>
+It is important to keep track of the households with zero and one vehicles available. We can see that in 2020, out of total households, 81 of them did not have any vehicles available and 919 of them had only one vehicle available.
 
+The census data set we used included tenure data and a tangential question that came to mind at this point was whether tenure was correlated with the number of vehicles available in a household. I thought it could be possible that owner occupied households would have more vehicles.
+```{r}
+#just out of curiosity
+tenure_plot <- rdwd_bg_vehicle %>%
+  mutate(
+    vehicle = case_when(
+      vehicle == "No vehicle available" ~ "0 Vehicles",
+      vehicle == "1 vehicle available" ~ "1 Vehicle",
+      vehicle == "2 vehicles available" ~ "2 Vehicles",
+      vehicle == "3 vehicles available" ~ "3 Vehicles",
+      vehicle == "4 vehicles available" ~ "4 Vehicles",
+      vehicle == "5 or more vehicles available" ~ "5+ Vehicles"
+    )) %>%
+  dplyr::select(-cbg) %>%
+  group_by(tenure, vehicle) %>%
+  summarise(estimate = sum(estimate))
+  
+ggplot(
+  tenure_plot, 
+  aes(
+    x = as.factor(vehicle), 
+    y = estimate,
+    fill = tenure
+  )
+) + 
+  geom_bar(stat = "identity", position = "dodge") + 
+  labs(x = "Number of vehicles in households", y = "Number of household", title = "Distribution of Vehicles in Owner and Renter occupied households")
+
+#owner average 20.05 cars/household
+#renters average 1.714 cars/household so not significant
+
+```
+<br> As you can see in the graph, it turns out that prediction is correct but only slightly. For owner-occupied households the average number of vehicles available is 2.05 while for renter-occupied it is 1.71 which is a negligible difference.
+
+
+<h3> Part 3: Vehicles per Building </h3>
+
+In this next step, we tied some loose ends and combined spatial data with building and vehicle data to create measures of vehicles per person, people per building and  by multiplying those two, vehicles per building. This variable will be very important from this point onward as we will now apply flood risk data to buildings and with this factor, to cars.
+
+An important assumption at this stage was that the population is distributed evenly across buildings in a block and therefore, so are vehicles.
 ```{r}
 detach("package:raster")
 
@@ -454,9 +468,9 @@ rdwd_veh_per_bldg <- rdwd_bldgs %>%
   left_join(rdwd_block_veh_per_bldg %>% select(GEOID20, veh_per_bldg))
 ```
 
-<h3> Part 4 </h3>
+<h3> Part 4: Vulnerability Data </h3>
 
-Vulnerability Data
+Here, we used the MEMORANDUM FOR PLANNING COMMUNITY OF PRACTICE by the DEPARTMENT OF THE ARMY as a source for our vulnerability data. This allows us to develop a relationship between flood depth and vehicle damage.
 
 ```{r}
 vulnerability <- data.frame(
@@ -575,9 +589,11 @@ rdwd_plot
 
 
 
-<h3> Part 5 </h3>
+<h3> Part 5: Average Annualized Cost of Floods </h3>
 
-Risk Estimation
+<h4> Risk Estimation </h4>
+
+Lastly, once we know the damage, the next step is to transform this into a dollar value. The first step here is to assume a value for an average car which according to the NYT, the average cost of a car in 2020 is $24,112. We also took into account the percentage of respondents who did not move vehicles with warning greater than 12 hours.
 ```{r}
 projection <- "+proj=utm +zone=10 +ellps=GRS80 +datum=NAD83 +units=ft +no_defs"
 
@@ -605,8 +621,9 @@ rdwd_vehicle_damage <-
 
 #head(rdwd_vehicle_damage) ##$$ damage for each vehicle, for each event
 ```
+This generated a value for the damage for each vehicle for each event.
 
-
+Next, we assumed a dollar value damage to each individual building id which applies to more than one vehicle.
 ```{r}
 rdwd_vehicle_aal_by_slr <-
   rdwd_vehicle_damage %>% 
@@ -628,7 +645,9 @@ rdwd_vehicle_aal_by_slr <-
 #assigning a dollar value damage to each osm_id aka individual building
 #133808609 clearly has a higher dollar value damage
 ```
+Out of our cbgs, 133808609 clearly has the highest dollar cost related to flood damage.
 
+Next, we will consider, for any given year (we have bouded our analysis to the 2020-2050 range), the likelihood of sea level rise being some amount or greater. Intuitively for the current year, the current sea level rise is what current data indicates, and the chances of any greater amount of sea level rise before the end of the year are effectively zero. Ten years from now, the distribution of probabilities will be based on climate models.
 
 ```{r}
 rcp45 <- read_csv("https://raw.githubusercontent.com/stanfordfuturebay/stanfordfuturebay.github.io/master/advanced/rcp45_sanfrancisco.csv")
@@ -679,7 +698,7 @@ rdwd_vehicle_aal_by_year <-
 ##bldg footprint is the proxy for the vehicles at street level and garage 
 ```
 
-Now we have projected flood risk between 2020 - 2050 and its associated $ damage. It seems like 2020 and 2030 are going to be the most costly years 
+Now we have projected flood risk between 2020 - 2050 and its associated $ damage. It seems like 2020 and 2030 are going to be the most costly years. 
 
 ```{r}
 rdwd_vehicle_aal_by_year_map <-
@@ -759,6 +778,9 @@ rdwd_vehicle_aal_by_year_map %>%
   ) %>% 
   showGroup("2050")
 ```
+<br>
+When toggling between 2020 and 2050, we can see that there is always a floos risk in thi zone that is only exacerbated over time with some buildings and vehicles becoming more exposed in the inlet close to the Bayshore Freeway. The peninsula with Saginew Dr in the center seems to be most at risk in 2050 with the greatest change between 2020 and 2050.
+
 
 ```{r}
 rdwd_bg_aal <-
@@ -792,7 +814,7 @@ final_table <-
   select(GEOID, aal) %>%
   st_drop_geometry()
 
-print(final_table)
+kable(final_table) %>% prettyNum(",") %>% paste0("$",.)
 
 sum(final_table$aal) %>% prettyNum(",") %>% paste0("$",.)
 ```
@@ -827,9 +849,14 @@ rdwd_bg_aal %>%
     title = "AAL, 2020-2050"
   )
 ```
+
 Here we can visually see the AAL across our block groups. The darkest chunk has the middle-most amount of buildings but the greatest loss, the orange has the most buildings and a little less loss, the white chunk has the least amount of buildings and the least amount of loss. This probably has to do with the fact that the white chunk is the most inland versus the darkest chunk which is closest to the water and the canals.Waterfront properties generally are more expensive than inland ones so it would makes sense that despite there being a fair amount of buildings, there is a huge loss compared to the middle chunk. Even at the block level, however, our results may not be granular enough to fully understand the placement of the buildings and their associated AALs. This would be an interesting starting point to look at cost of housing, housing tenancy, and AAL affects.
 
 <h4> Monte Carlo Simulation </h4>
+
+While the vulnerability data used is very carefully crafted, nature is not within our control and no matter how much or how well we predict, there will always be unexpected circiumstances, both for better and for worse.
+
+To try and account for this, I ran a Monte Carlo simulation with 10000 possible scenarios.
 ```{r}
 # vehicle_damage_montecarlo <-
 #   map2(
@@ -931,5 +958,10 @@ hist(montecarlo_result)
 mean(montecarlo_result) %>% prettyNum(",") %>% paste0("$",.)
 ```
 
+This is in many ways a sanity check for our method as the mean value from all these sumilations of $882,394.50 is very similar to our prevously obtained value of $882,298.10.
 
+<h4> Concluding Thoughts </h4>
+
+<br>
+<br>
 
