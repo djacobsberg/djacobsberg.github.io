@@ -1,0 +1,13 @@
+name: A5_Shiny
+title: A5_Shiny
+username:
+account: djacobsberg
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 5816575
+bundleId: 5662613
+url: https://djacobsberg.shinyapps.io/A5_Shiny/
+when: 1646847320.29232
+lastSyncTime: 1646847320.29234
+asMultiple: FALSE
+asStatic: FALSE
