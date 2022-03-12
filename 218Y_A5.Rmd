@@ -1,6 +1,6 @@
 ---
 title: "218Y_A5"
-author: "Daphne Jacobsberg"
+author: "Daphne Jacobsberg with Catherine Beck and Lena Bakalian"
 date: "3/1/2022"
 output: html_document
 editor_options: 
@@ -12,16 +12,16 @@ knitr::opts_chunk$set(echo = F, warning = F, message = F)
 ```
 
 ```{r}
-# library(tidyverse)
+library(tidyverse)
 # library(readxl)
 # library(tigris)
 # library(sf)
 # library(leaflet)
-# library(tidycensus)
+library(tidycensus)
 # library(censusapi)
 # library(mapview)
 # library(esri2sf)
-# library(plotly)
+library(plotly)
 # library(knitr)
 # library(mapboxapi)
 # library(stringr)
@@ -32,7 +32,8 @@ knitr::opts_chunk$set(echo = F, warning = F, message = F)
 ```
 
 <h4> Part 1: Geographic Equity </h4>
-
+We associated sensors with jurisdictions by filtering the sensors twice. Once by county to get to San Mateo County only and then a second time with places() for each city (Foster City and East Palo Alto). <br>
+<br>
 We looked at outdoor air quality between East Palo Alto and Foster City and created a graph comparing PM 2.5 concentrations over time (February) for both jurisdictions as well as a map of the whole of San Mateo County and the AQI across the region. The graph shows that PM 2.5 is actually pretty ok. There are more sensors in the Bay-side rather than the ocean-side of the County, which makes the data coming from Foster City and East Palo Alto fairly reliable. It seems like the 280 is the boundary between the area with more and fewer sensors. The AQI map shows that our areas of interest had predominantly good or moderate air quality (though there were parts of San Mateo that had worse AQI).
 
 ```{r}
@@ -44,15 +45,15 @@ We looked at outdoor air quality between East Palo Alto and Foster City and crea
 #     "&fields=name,location_type,latitude,longitude,pm2.5_1week,temperature,humidity,primary_id_a,primary_key_a,secondary_id_a,secondary_key_a,primary_id_b,primary_key_b,secondary_id_b,secondary_key_b"
 #   ))
 # 
-# all_sensors <- json %>% 
-#   .$data %>% 
-#   as.data.frame() %>% 
-#   set_names(json$fields) %>% 
+# all_sensors <- json %>%
+#   .$data %>%
+#   as.data.frame() %>%
+#   set_names(json$fields) %>%
 #   filter(
 #     !is.na(longitude),
 #     !is.na(latitude)
-#   ) %>% 
-#   st_as_sf(coords = c("longitude","latitude"), crs = 4326) %>% 
+#   ) %>%
+#   st_as_sf(coords = c("longitude","latitude"), crs = 4326) %>%
 #   mutate(location_type = ifelse(
 #     location_type == 0,
 #     "outside",
@@ -65,22 +66,22 @@ We looked at outdoor air quality between East Palo Alto and Foster City and crea
 #   st_transform(4326)
 # 
 # smc_sensors <-
-#   all_sensors %>% 
+#   all_sensors %>%
 #   .[smc_county, ] #need to get bay counties
 ```
 
 ```{r}
-# smc_sensors_clean <- smc_sensors %>% 
+# smc_sensors_clean <- smc_sensors %>%
 #   filter(
 #     !is.na(pm2.5_1week),
 #     !is.na(humidity)
-#   ) %>% 
+#   ) %>%
 #   mutate(
 #     PM25 = 0.524*as.numeric(pm2.5_1week) - 0.0852*as.numeric(humidity) + 5.72,
 #     AQI = case_when(
-#       PM25 <= 12 ~ 
+#       PM25 <= 12 ~
 #         paste(round(50/12*PM25), "Good"),
-#       PM25 <= 35.4 ~ 
+#       PM25 <= 35.4 ~
 #         paste(round((100-51)/(35.4-12)*(PM25 - 12) + 51), "Moderate"),
 #       PM25 <= 55.4 ~
 #         paste(round((150-101)/(55.4-35.4)*(PM25 - 35.4) + 101), "Moderately Unhealthy"),
@@ -88,16 +89,16 @@ We looked at outdoor air quality between East Palo Alto and Foster City and crea
 #         paste(round((200-151)/(150.4-55.4)*(PM25 - 55.4) + 151), "Unhealthy"),
 #       PM25 <= 250.4 ~
 #         paste(round((300-201)/(250.4-150.4)*(PM25 - 150.4) + 201), "Very Unhealthy"),
-#       TRUE ~ 
+#       TRUE ~
 #         paste(round((500-301)/(500.4-250.5)*(PM25 - 250.5) + 301), "Hazardous")
 #     )
-#   ) %>% 
+#   ) %>%
 #   separate(
 #     AQI,
 #     into = c("AQI","AQI_Cat"),
 #     sep = " ",
 #     extra = "merge"
-#   ) %>% 
+#   ) %>%
 #   mutate(
 #     AQI = as.numeric(AQI),
 #     AQI_Cat = AQI_Cat %>% factor(levels = c("Good", "Moderate","Moderately Unhealthy","Unhealthy","Very Unhealthy","Hazardous"))
@@ -232,39 +233,39 @@ We looked at outdoor air quality between East Palo Alto and Foster City and crea
 
 # smc_pm25_voronoi <-
 #   smc_sensors_clean %>%
-#   filter(location_type == "outside") %>% 
-#   st_union() %>% 
-#   st_voronoi() %>% 
-#   st_cast() %>% 
-#   st_as_sf() %>% 
-#   st_intersection(.,st_union(smc_county)) %>% 
+#   filter(location_type == "outside") %>%
+#   st_union() %>%
+#   st_voronoi() %>%
+#   st_cast() %>%
+#   st_as_sf() %>%
+#   st_intersection(.,st_union(smc_county)) %>%
 #   st_join(smc_sensors_clean %>% filter(location_type == "outside"))
-# 
-# #ggplot(smc_pm25_voronoi) + geom_sf()  
-# 
-# smc_cbgs <- block_groups("CA","San Mateo", cb = T, progress_bar = F) %>% 
+
+#ggplot(smc_pm25_voronoi) + geom_sf()
+
+# smc_cbgs <- block_groups("CA","San Mateo", cb = T, progress_bar = F) %>%
 #   st_transform(4326)
 # 
 # smc_pm25_voronoi_cbg <-
-#   smc_pm25_voronoi %>% 
-#   st_intersection(smc_cbgs) %>% 
-#   st_make_valid() %>% 
+#   smc_pm25_voronoi %>%
+#   st_intersection(smc_cbgs) %>%
+#   st_make_valid() %>%
 #   mutate(
 #     area = st_area(.) %>% as.numeric()
-#   ) %>% 
-#   st_drop_geometry() %>% 
-#   group_by(GEOID) %>% 
+#   ) %>%
+#   st_drop_geometry() %>%
+#   group_by(GEOID) %>%
 #   summarize(
 #     PM25 = weighted.mean(PM25, area, na.rm = T)
-#   ) %>% 
-#   left_join(smc_cbgs %>% dplyr::select(GEOID)) %>% 
+#   ) %>%
+#   left_join(smc_cbgs %>% dplyr::select(GEOID)) %>%
 #   st_as_sf()
 # 
 # smc_sensors <-
-#   smc_sensors_clean %>% 
-#   filter(location_type == "outside") %>% 
+#   smc_sensors_clean %>%
+#   filter(location_type == "outside") %>%
 #   .[smc_cbgs, ]
-# 
+
 # saveRDS(smc_sensors, "smc_sensors.rds")
 # 
 # pm25_pal <- colorNumeric(
@@ -316,12 +317,17 @@ We looked at outdoor air quality between East Palo Alto and Foster City and crea
 #   left_join(places("CA", cb = T) %>% select(PLACEFP)) %>%
 #   st_as_sf()
 # saveRDS(smc_places, "smc_places.rds")
+# smc_places <- readRDS("smc_places.rds")
 ```
 
 
 <h4> Part 2: Population Equity </h4>
-
-Moving on to our equity analysis in part 2, we were looking at how race and income could affect the distribution of good/moderate air quality. For the race analysis, it did seem fairly representational of the racial breakdown of the region, and also quite even across moderate and good. This may just be because the AQI of the region is already pretty good. For income too, the population was equitably distributed between good and moderate. For both of these, the majority is white people with over $150,000. If we were to look specifically at East Palo Alto, or other less affluent jurisdictions, that might not be the case. But since this chart is representing all of San Mateo County's data, we are probably seeing skewed data towards a more rosy picture. This would be an interesting area for follow up study. 
+Moving on to our equity analysis in part 2, we were looking at how race and income could affect the distribution of good/moderate air quality. For the race analysis, it did seem fairly representational of the racial breakdown of the region, and also quite even across moderate and good. This may just be because the AQI of the region is already pretty good. For Good air quality, white alone populations have 540454 number of sensors monitoring the air quality versus the 8827 sensors that Black/African American alone have. This might skew the data towards good air quality in the Black/African American alone towards seeming better because there are fewer sensors monitoring the area. This difference is even worse in the moderate category. White alone populations have 13252 sensors monitoring and picked up moderate air quality, whereas Black/African American alone have only 530 sensors. This could mean that the air quality is far worse (or potentially far better) than we are observing in the data. <br>
+<br>
+For the income breakdown, for good air, there is a much larger proportion of sensors for populations making 150,000 (387353) or more versus the populations making less than 10,000 (16158).
+Since this chart is representing all of San Mateo County's data, we are probably seeing skewed data towards a more rosy picture. This would be an interesting area for follow up study. A future analysis we could do is understanding how much of the population is 150K earning or above. If the majority of the population is making that salary, then it would be understandable for that population to have the largest proportion of sensors compared to the total population. If it is not the case that the majority of San Mateo County's residents are White alone and/or making 150K, then it is a very clear equity issue that those two populations have the highest sensor count compared to the total population. <br>
+<br>
+We associated sensors with Census populations by first pulling all of the sensor data from the purple air file, we then associated that data with geometries from the places Census data (ACS 5-year data from 2019). This then narrowed the number of sensors to just those within the San Mateo County boundary. Next, we overlayed that boundary to isolate the sensors of interest (cookie cutter style) while keeping the estimate data (population data). We pulled data focused on race and income from ACS. Our two options were: (a) to assume the sample of existing sensors is representative of the whole population and therefore extrapolate data collected to the whole population and (b) (the one we went with) was to apply the current equity scenario to the sensors which includes assuming every sensors represents an x% white and y% african american and z% asian family. <br>
 
 ```{r}
 # aqi_pal <- colorFactor(
@@ -487,16 +493,265 @@ Moving on to our equity analysis in part 2, we were looking at how race and inco
 # smc_tracts <- tracts("CA", progress_bar = F) %>%
 #   filter(COUNTYFP == "081") %>%
 #   select(TRACTCE, geometry) %>%
-#   st_transform(4326)
+#   st_transform(4326) %>%
+#   filter(TRACTCE != "990100")
+
+#mapview(smc_tracts)
 # 
 # smc_sensors_equity <- smc_sensors_levels %>%
 #   select(sensor_index, AQI_Cat, geometry) %>%
 #   st_join(smc_tracts) %>%
 #   rename(tract = TRACTCE) %>%
 #   left_join(income_race_tract_clean) %>%
-#   st_drop_geometry()
-# 
-# saveRDS(smc_sensors_equity, "smc_sensors_equity.rds")
+#   st_drop_geometry() %>%
+  # mutate(
+  #     option = case_when(
+  #       option == "White alone" ~ "White",
+  #       option == "Black or African American alone" ~ "Black/Afr Am",
+  #       option == "Asian alone" ~ "Asian",
+  #       option == "Two or more Races" ~ "Two+",
+  #       option == "Some Other Race alone" ~ "Other",
+  #       option == "American Indian and Alaska Native alone" ~ "Indian+Alaska",
+  #       option == "Native Hawaiian and Other Pacific Islander alone" ~ "Hawaii+Island",
+  #       TRUE ~ option
+  #         )
+  #   )
+
+#saveRDS(smc_sensors_equity, "smc_sensors_equity.rds")
+#smc_sensors_equity <- readRDS("smc_sensors_equity.rds")
 ```
 
+<h4> Part 3: Data Equity </h4>
+
+This objective of this next portion of the assignment is to create a rationale, based on equity indicators, that would determine where to place the next sensors. We know we have to unevenly distribute sensors in order to achieve an even distribution but where and based on factors?
+
+The methodology below investigates income as the main determining factor, based on the belief that it is the underlying factor behind many other inequities. Furthermore, not only does income directly affect the number of sensors available due to cost but also impacts the resources people have in order to respond to the consequences of poor air quality.
+
+As for air quality, this analysis uses outdoor sensors only. Also, this analysis purposefully avoids using other population groups given that air quality is a public good so there is no racism behind the way it is distributed. It is important to understand that there could be racism in the way sensors are distributed and thus, data collected leading to biased conclusions. This is an important distinction.
+
+To begin with, the graph below shows a clear correlation between the average weighted income by tract and the count of sensors in a tract. (Note: Using a more granular level of data eg block groups would help make this model more accurate however, used tracts to avoid confusion with the previous parts and allow for possible comparisons/consistency.) You can see that the higher the average weighted income for a tract, the higher the chances that theere are more sensors in the tract.
+
+```{r}
+# Sys.setenv(CENSUS_KEY="c8aa67e4086b4b5ce3a8717f59faa9a28f611dab")
+# 
+# acs_vars_2019_5yr <- readRDS("acs_vars_2019_5yr.rds")
+
+# pop_tract <-
+#   #1:7 %>%
+#   #map_dfr(function(x){
+#     getCensus(
+#       name = "acs/acs5",
+#       vintage = 2019,
+#       region = "tract:*",
+#         regionin = "state:06+county:081",
+#       vars = "group(B01001)",
+#     ) %>%
+#       select(ends_with("E"), tract) %>%
+#       select(-c(state,NAME)) %>%
+#       pivot_longer(
+#         ends_with("E"),
+#         names_to = "name",
+#         values_to = "estimate"
+#       ) %>%
+#       left_join(
+#         acs_vars_2019_5yr %>%
+#           select(name, label)
+#       ) %>%
+#       filter(name == "B01001_001E") %>%
+#       select(-label) %>%
+#       select(-name) #%>%
+      # group_by(income) %>%
+      # filter(!is.na(income)) %>%
+      # mutate(
+      #   race = race_categories[x] #distinguishes from multi-race respondents
+      # )
+#})
+
+```
+
+```{r}
+# smc_sensors_pop <- smc_sensors_clean %>%
+#   filter(location_type == "outside") %>%
+#   select(sensor_index, geometry) %>%
+#   st_join(smc_tracts) %>%
+#   rename(tract = TRACTCE) %>%
+#   left_join(pop_tract) %>%
+#   st_drop_geometry() %>%
+#   group_by(tract, estimate) %>%
+#   summarize(count = n()) %>%
+#   mutate(people = estimate/count) %>% #pps is people per sensor so the lower the better
+#   rename(TRACTCE = tract) %>%
+#   select(people, TRACTCE) #%>%
+#   #filter(TRACTCE != "613400")
+# 
+# 
+# smc_sensors_land <- smc_sensors_clean %>%
+#   filter(location_type == "outside") %>%
+#   select(sensor_index, geometry) %>%
+#   st_join(smc_tracts) %>%
+#   #rename(tract = TRACTCE) %>%
+#   st_drop_geometry()
+# 
+# smc_sensors_land_clean <- smc_places %>%
+#   st_transform(4326) %>%
+#   st_join(smc_tracts) %>%
+#   select(ALAND, TRACTCE, geometry) %>%
+#   # st_join(smc_tracts) %>%
+#   #rename(tract = TRACTCE) %>%
+#   left_join(smc_sensors_land) %>%
+#   st_drop_geometry() %>%
+#   group_by(TRACTCE, ALAND) %>%
+#   summarize(count = n()) %>%
+#   mutate(area = ALAND/10000/count) %>% #lps is land per sensor to the lower the better
+#   select(area, TRACTCE)
+
+
+```
+
+
+
+```{r}
+# scatter plot
+# income_race_tract <- readRDS("income_race_tract.rds")
+# 
+# income_tract <- income_race_tract %>%
+#   select(-race) %>%
+#   #group_by(tract, race) %>%
+#   mutate(
+#     income = case_when(
+#       income == "Less than $10,000" ~ 7500,
+#       income %in% c("$10,000 to $14,999", "$15,000 to $19,999", "$20,000 to $24,999") ~ 17500,
+#       income %in% c("$25,000 to $29,999", "$30,000 to $34,999", "$35,000 to $39,999", "$40,000 to $44,999", "$45,000 to $49,999") ~ 37500,
+#       income %in% c("$50,000 to $59,999", "$60,000 to $74,999") ~ 62500,
+#       income == "$75,000 to $99,999" ~ 87500,
+#       income %in% c("$100,000 to $124,999", "$125,000 to $149,999") ~ 125000,
+#       income %in% c("$150,000 to $199,999", "$200,000 or more") ~ 250000
+#       #TRUE ~ income
+#     )) %>%
+#   mutate(
+#     compounded = income * estimate
+#   ) %>%
+#   group_by(tract) %>%
+#   summarise(estimate = sum(estimate), compounded = sum(compounded)) %>%
+#   mutate(
+#     weightedaverage = compounded/estimate
+#   ) %>%
+#   select(tract, weightedaverage) %>%
+#   rename(TRACTCE = tract)
+# 
+# smc_sensors_income <- smc_sensors_clean %>%
+#   filter(location_type == "outside") %>%
+#   select(sensor_index, geometry) %>%
+#   st_join(smc_tracts) %>%
+#   #rename(tract = TRACTCE) %>%
+#   left_join(income_tract) %>%
+#   st_drop_geometry() %>%
+#   group_by(TRACTCE, weightedaverage) %>%
+#   summarize(count = n()) 
+# 
+# saveRDS(smc_sensors_income, "smc_sensors_income.rds")
+smc_sensors_income <- readRDS("smc_sensors_income.rds")
+
+ggplot(
+  smc_sensors_income,
+  aes(
+    x = weightedaverage,
+    y = count
+    #group = type
+  )
+) +
+  #geom_line() +
+  geom_point() +
+  labs(x = "Average Weighted Income by Tract", y = "Count of Sensors in Tract", title = "Income vs Sensors by Tract")
+
+```
+
+<br>
+To decided where to put the next sensors, the main goal, it is important to think about the specific location of a sensor within the tract. Neighboring sensors do not contribute as much and sensors on a border could also count towards the measurement of its neighboring tract.
+
+As such, the next step deals with the geography behind this and records the percentage of the area of a tract that is somehow covered by a sensor. This uses the assumption that each sensor covers a radius of 200m around. Assuming, population is then equally distributed across a tract, you can get to the population who's air quality is not measured by the current sensor distribution.
+
+Now, this is where income comes in. To do this analysis, income at less than USD10,000 has been considered to be Very Low Income while the bracket from USD10,000 to USD25,000 to be Low Income. Based on 5-yr ACS census data, the final map shows the population in each of these income categories that are not represented by the available sensors.
+
+In the map displayed in the Shiny Dashboard, by toggling between income levels, you can see the distribution changes quite a bit. For Low Income, the ten tracts with the largest unrepresented populations were 601300, 613700, 607400, 602400, 610201, 600800, 610202, 602000, 610601, 602200. With Very Low Income only, the ten tracts were 611900, 608900, 611700, 600800, 604101, 610201, 612000, 608004, 606300, 608001. Interestingly, there were only two in common, those being 610201, 600800 which correspond to Redwood City, San Mateo County and Daly City, also in San Mateo County.
+
+As a peek into looking at what another factor would look like, here is the race breakdown for these two tracts.
+
+610201 = Whites:40.2%, Hispanics:74.4%, Blacks:3.2%, Asians:6.6%, Others:50% <br>
+600800 = Whites:24.3%, Hispanics:20.7%, Blacks:7.2%, Asians:50.3%, Others:18.2%
+
+The first having an incredibly high percentage of Hispanics and the second, a very high percentage of Asians in the community. This could be a potential next step of this anlaysis and weighing scheme.
+
+One last point worth mentioning is that one key flaw of this model is that the absolute number of Very Low Income and Low Income people in a geography also impact this score.
+
+<br>
+<br>
+
+
+```{r}
+#income map
+# income_race_tract <- readRDS("income_race_tract.rds")
+# 
+# income_tract_levels <- income_race_tract %>%
+#   select(-race) %>%
+#   mutate(
+#     income = case_when(
+#       income == "Less than $10,000" ~ "Very Low Income",
+#       income %in% c("$10,000 to $14,999", "$15,000 to $19,999", "$20,000 to $24,999") ~ "Low Income"
+#     )) %>%
+#   filter(!is.na(income)) %>%
+#   rename(TRACTCE = tract) %>%
+#   group_by(TRACTCE, income) %>%
+#   summarise(estimate = sum(estimate))
+```
+
+
+```{r}
+# sensors_dist <- smc_sensors_pop %>%
+#   left_join(smc_sensors_land_clean) %>%
+#   left_join(smc_sensors_income) %>%
+#   left_join(smc_tracts) %>%
+#   #ungroup() %>%
+#   #select(lps, geometry, TRACTCE) %>%
+#   st_as_sf() %>%
+#   pivot_longer(
+#     cols = c(area, people, income),
+#     names_to = "perwhat",
+#     values_to = "value"
+#   )
+# 
+# saveRDS(sensors_dist, "sensors_dist.rds")
+```
+
+```{r}
+# smc_sensors_radii <- smc_sensors_clean %>%
+#   filter(location_type == "outside") %>%
+#   select(geometry) %>%
+#   st_transform(26910) %>%
+#   st_buffer(
+#     dist = 200 #200m is like 1/8th of a mile
+#   ) %>%
+#   st_union() %>%
+#   st_as_sf()
+# 
+# smc_sensors_combine <- smc_tracts %>%
+#   st_transform(26910) %>%
+#   mutate(original_area = st_area(.)) %>%
+#   st_difference(smc_sensors_radii) %>%
+#   mutate(
+#     uncovered_area = st_area(.),
+#     perc_area = uncovered_area / original_area
+#   ) %>%
+#   st_drop_geometry() %>%
+#   left_join(income_tract_levels) %>%
+#   mutate(
+#     pop = perc_area * estimate
+#   ) %>%
+#   left_join(smc_tracts) %>%
+#   filter(TRACTCE != "990100") %>%
+#   select(geometry, income, pop, TRACTCE) %>%
+#   st_as_sf()
+# 
+# saveRDS(smc_sensors_combine, "smc_sensors_combine.rds")
+```
 

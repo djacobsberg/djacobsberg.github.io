@@ -5,9 +5,9 @@ account: djacobsberg
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 5816575
-bundleId: 5662613
+bundleId: 5674136
 url: https://djacobsberg.shinyapps.io/A5_Shiny/
-when: 1646847320.29232
-lastSyncTime: 1646847320.29234
+when: 1647053420.8215
+lastSyncTime: 1647053420.82152
 asMultiple: FALSE
 asStatic: FALSE

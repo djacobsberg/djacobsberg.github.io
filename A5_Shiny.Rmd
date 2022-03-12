@@ -40,6 +40,15 @@ smc_places <- readRDS("smc_places.rds")
 
 #part 2
 smc_sensors_equity <- readRDS("smc_sensors_equity.rds")
+
+#part 3
+#sensors_dist <- readRDS("sensors_dist.rds")
+#smc_sensors_income <- readRDS("smc_sensors_income.rds")
+
+smc_sensors_combine <- readRDS("smc_sensors_combine.rds")
+
+
+#red is large number of households not within radius of sensor
 ```
 
 
@@ -48,9 +57,11 @@ Inputs {.sidebar}
 -------------------------------------
 Welcome to our dashboard for air quality in San Mateo county!
 
-By toggling between Foster City and East Palo Alto, you can see the AQI for these jurisdictions on the map to the right and on the top left, see their PM 2.5 change over time.
+By toggling between Foster City and East Palo Alto, you can see the AQI for these jurisdictions on the map to the top right and on the top left, see their PM 2.5 change over time.
 
 On the bottom left, you can toggle between race and income and see the according equity distributions for the whole county's air quality.
+
+To the right of the equity distribution graph is another map showing the number of people in each income level who are not captured by the existing sensor locations. Highlighted are the ten highest scores for each income level and thus, where this weighing scheme suggests the next sensors should be added.
 
 When you load, please be patient - it might take a few seconds to pop up.
 
@@ -69,10 +80,17 @@ selectInput(
   selected = "race"
 )
 
+selectInput(
+  inputId = "income",
+  label = "Income Levels:",
+  choices = c("Very Low Income", "Low Income"),
+  selected = "Very Low Income"
+)
 
 ```
 
-by Daphne Jacobsberg, Catherine Beck & Lena Bakalian
+by Daphne Jacobsberg with Catherine Beck & Lena Bakalian
+
 
 Column
 -------------------------------------
@@ -123,7 +141,7 @@ observeEvent({
   }, {
 
 equity_graph <- smc_sensors_equity %>%
-  filter(categories == "income") %>% #input$category
+  filter(categories == input$category) %>%
   group_by(option, AQI_Cat) %>%
   summarise(estimate = sum(estimate)) %>%
   ungroup() %>%
@@ -132,7 +150,7 @@ equity_graph <- smc_sensors_equity %>%
     aes(
       x = estimate,
       y = AQI_Cat,
-      fill = option %>% factor(rev(c("Less than $10,000","$10,000 to 24,999","$25,000 to 49,999","$50,000 to 74,999","$75,000 to 99,999","$100,000 to 149,999","$150,000 or more", "White alone", "Black or African American alone", "American Indian and Alaska Native alone", "Asian alone", "Native Hawaiian and Other Pacific Islander alone", "Some Other Race alone", "Two or more Races")))), 
+      fill = option %>% factor(rev(c("Less than $10,000","$10,000 to 24,999","$25,000 to 49,999","$50,000 to 74,999","$75,000 to 99,999","$100,000 to 149,999","$150,000 or more", "White", "Black/Afr Am", "Indian+Alaska", "Asian", "Hawaii+Island", "Other", "Two+")))), 
     stat = "identity",
     position = "fill"
   ) +
@@ -144,20 +162,22 @@ equity_graph <- smc_sensors_equity %>%
   ) +
   theme(
     legend.position = "bottom",
-    legend.direction = "vertical"
+    legend.direction = "horizontal"
   )  +
-    guides(
-      fill = guide_legend(
-        reverse = T,
-        nrow = 3, 
-        byrow=TRUE
-    )
-  )
+  guides(
+    fill = guide_legend(
+      reverse = T
+      #nrow = 4,
+      #byrow=TRUE
+  ))
 
   output$equity_graph <- renderPlotly({
     equity_graph %>%
       ggplotly() %>%
-      config(displayModeBar = F)
+      config(displayModeBar = F) %>%
+        layout(legend = list(orientation = 'v'))
+        #layout(legend = list(itemheight = 100))
+        #layout(legend = list(font_size= 10))
   })
 
 })
@@ -167,7 +187,7 @@ equity_graph <- smc_sensors_equity %>%
 
 Column
 -------------------------------------
-### Map
+### Maps
 
 
 ```{r}
@@ -241,5 +261,68 @@ observeEvent(input$city, {
       layerId = "selected"
     )
   
+})
+```
+
+
+### 
+```{r}
+leafletOutput("sensors_map")
+```
+
+```{r, context = "server"}
+observeEvent({
+  input$income
+  }, {
+
+sensors_pal <- colorFactor(
+    palette = "RdYlGn",
+    reverse = T,
+    domain = smc_sensors_combine$pop
+  )
+
+output$sensors_map <- renderLeaflet({
+    leaflet() %>%
+    addProviderTiles(provider = providers$CartoDB.Positron) %>%
+    addPolygons(
+      data = smc_sensors_combine %>% filter(income == input$income),
+      fillColor = ~sensors_pal(pop),
+      fillOpacity = 0.5,
+      color = "white",
+      weight = 0.5,
+      label = ~pop,
+      highlightOptions = highlightOptions(
+        weight = 2,
+        opacity = 1
+      ))
+      # addLegend(
+      #   pal = sensors_pal,
+      #   values = c(
+      #     smc_sensors_combine$pop
+      # ))
+  })
+
+})
+```
+
+```{r, context = "server"}
+observeEvent(input$income, {
+
+  selected <- smc_sensors_combine %>%
+    filter(income == input$income)
+
+  leafletProxy("sensors_map") %>%
+    removeShape(selected$TRACTCE) %>%
+    addPolygons(
+      data = selected  %>%
+    arrange(desc(pop)) %>%
+    filter(row_number() <= 10),
+      fill = F,
+      color = "black",
+      weight = 2,
+      opacity = 1,
+      layerId = ~TRACTCE
+    )
+
 })
 ```
